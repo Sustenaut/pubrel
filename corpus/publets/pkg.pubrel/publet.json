@@ -2,7 +2,7 @@
   "claims": {
     "identity": {
       "class": "archival",
-      "content": "pubrel 0.5.0 is released as v0.5.0 from commit b6b4582d2c851dfe55ef5506ef829257575fc4c6.",
+      "content": "pubrel 0.5.1 is released as v0.5.1 from commit e070f0e53e9780d64e2f99b7c117e7f2f3c9c302.",
       "data": {
         "columns": [
           {
@@ -27,25 +27,25 @@
         "rows": [
           [
             "pubrel",
-            "0.5.0",
+            "0.5.1",
             "pubrel --version",
-            "pubrel 0.5.0",
-            "v0.5.0",
-            "b6b4582d2c851dfe55ef5506ef829257575fc4c6"
+            "pubrel 0.5.1",
+            "v0.5.1",
+            "e070f0e53e9780d64e2f99b7c117e7f2f3c9c302"
           ]
         ]
       },
-      "scope": "the published release v0.5.0 of pubrel",
+      "scope": "the published release v0.5.1 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "b6b4582d2c851dfe55ef5506ef829257575fc4c6"
+          "revision": "e070f0e53e9780d64e2f99b7c117e7f2f3c9c302"
         }
       ]
     },
     "release": {
       "class": "archival",
-      "content": "pubrel 0.5.0 was released on 2026-10-09 from commit b6b4582d2c851dfe55ef5506ef829257575fc4c6 with these changes.",
+      "content": "pubrel 0.5.1 was released on 2026-10-11 from commit e070f0e53e9780d64e2f99b7c117e7f2f3c9c302 with these changes.",
       "data": {
         "columns": [
           {
@@ -57,73 +57,33 @@
         ],
         "rows": [
           [
-            "internal",
-            "Documentation brought towards pubkit's Rust crate standard by its rust-crate-quality agent: exact `# Errors` sections and docs for every item other modules use, `// covers:` comments on the unit tests, a README covering commands, why pubrel, related tools, versioning and its versioned interface, MSRV and security, and a new SECURITY.md."
-          ],
-          [
-            "changed",
-            "pubrel is licensed under Apache-2.0, as publet is, instead of MIT, and the licence text ships as LICENSE."
-          ],
-          [
-            "fixed",
-            "`pubrel --help` (and `-h`, `help`) prints the usage to stdout and succeeds; it failed as an unknown command, with the usage on stderr. The usage now lists `summary` among the commands --package applies to, and the --package=NAME and version spellings."
-          ],
-          [
-            "internal",
-            "pubrel depends on publet-core 0.1.2 from crates.io instead of a git tag, and its manifest carries crates.io metadata and an include list, so it can be published there. Scenarios cover init, --version and --help."
-          ],
-          [
-            "fixed",
-            "A version whose part to bump is already u64::MAX is refused with a message, instead of panicking: pubrel's release builds check for overflow, so a pull request could make `check` crash. Found by fuzzing."
-          ],
-          [
-            "internal",
-            "What `check` reads from a pull request is fuzzed: release.json, unreleased.json, the corpus lock and the manifests with the version arithmetic. CI runs it on every change."
-          ],
-          [
-            "internal",
-            "pubrel's dependencies are checked in CI and before each release: cargo deny (advisories, licences, sources) and cargo vet (audits imported from Mozilla, Google, the Bytecode Alliance, Zcash, ISRG and Embark Studios, trusted publishers, or exemptions with their evidence). SUPPLY-CHAIN.md ships in the package, and each release records the checks in a signed security claim."
-          ],
-          [
-            "fixed",
-            "pubrel declared Rust 1.98, the toolchain it is developed with, though it builds on 1.88, the first release with stable `let` chains. It now declares 1.88, and CI builds it there."
-          ],
-          [
-            "internal",
-            "CI builds pubrel on its minimum Rust version, runs the tests on 32-bit (i686) and big-endian (s390x) targets, and runs nightly, with longer fuzzing and the latest stable and beta Rust."
-          ],
-          [
-            "fixed",
-            "A security check's recorded summary is the last line it printed to stdout. stdout and stderr were joined with stderr last, so a tool that warns on stderr after its summary, as cargo deny does for duplicate crates, had a warning recorded in place of its result. Facts and tool versions are read from stdout first too."
+            "added",
+            "release.json's `install` may name `{version}` as well as `{tag}`, so release notes can install from crates.io. pubrel's own notes and README now do: `cargo install --locked pubrel`."
           ],
           [
             "added",
-            "`pubrel withdraw PR|BRANCH` withdraws a release that was cut but never merged: it lists the objects that release added in .draft-discards, which pub never exports, so the next release does not carry them. `prepare` and `check` refuse a release carrying records of another attempt, and `prepare` says what to undo when a release cut again reproduces a withdrawn object."
+            "The shared release workflow installs pubrel 0.5.0 and later from crates.io (`cargo install --locked pubrel --version X.Y.Z`); earlier versions still come from their git tag."
           ],
           [
-            "internal",
-            "`make publish-check` verifies the package in its own target directory: sharing target/ left cargo reporting pubrel up to date after source changes."
-          ],
-          [
-            "added",
-            "`pubrel withdraw PR` refuses an open or merged pull request, and deletes a closed one's release branch from origin and from this clone (unless it is a fork's), so the release can be cut again under the same name."
+            "fixed",
+            "pubrel drives pub 0.2 as well as 0.1: it refused pub 0.2.0, the current publet-cli, though its whole suite passes against it. pub 0.2.0 changed only render pipelines' tool requirements, which pubrel does not use. CI now runs the suite against pub 0.2.0."
           ]
         ]
       },
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.5.0 of pubrel",
+      "scope": "the published release v0.5.1 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "b6b4582d2c851dfe55ef5506ef829257575fc4c6"
+          "revision": "e070f0e53e9780d64e2f99b7c117e7f2f3c9c302"
         }
       ]
     },
     "security": {
       "class": "archival",
-      "content": "pubrel 0.5.0 passed these security checks before release on 2026-10-09.",
+      "content": "pubrel 0.5.1 passed these security checks before release on 2026-10-11.",
       "data": {
         "columns": [
           {
@@ -160,9 +120,9 @@
           [
             "check",
             "supply-chain report current",
-            "./tools/supply-chain-report.py --check pubrel && echo 'SUPPLY-CHAIN.md current'",
-            "",
-            "SUPPLY-CHAIN.md current"
+            ".venv/bin/pubkit supply-chain --check pubrel",
+            "pubkit 0.5.0",
+            "SUPPLY-CHAIN.md current for pubrel"
           ],
           [
             "fact",
@@ -183,16 +143,16 @@
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.5.0 of pubrel",
+      "scope": "the published release v0.5.1 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "b6b4582d2c851dfe55ef5506ef829257575fc4c6"
+          "revision": "e070f0e53e9780d64e2f99b7c117e7f2f3c9c302"
         }
       ]
     }
   },
-  "created": "2026-10-09T00:00:00Z",
+  "created": "2026-10-11T00:00:00Z",
   "sections": [
     {
       "heading": "Identity",
