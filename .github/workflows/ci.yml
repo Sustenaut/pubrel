@@ -20,6 +20,7 @@ jobs:
     uses: schryer/pubkit/.github/workflows/rust-ci.yml@v0.3.1
     with:
       pub-version: v0.2.0
+      functional: functional supply-chain-check
       fuzz: true
       msrv: true
       cross-targets: '["i686-unknown-linux-gnu", "s390x-unknown-linux-gnu"]'

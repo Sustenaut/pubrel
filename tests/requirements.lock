@@ -168,17 +168,17 @@ MarkupSafe==3.0.4 \
 packaging==26.3 \
     --hash=sha256:94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79 \
     --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
-parse==1.22.2 \
-    --hash=sha256:8ff0b98202798b8cefa4f8fac06b670d6d00e5ec6ecbbacaf97ac0d0e93a54e6 \
-    --hash=sha256:b8ed6f889ca625b6b3aed4ec1439eb9421fde31814c2b1d550ccd8df5733a5b6
+parse==1.22.3 \
+    --hash=sha256:2cd33a301b5a4b400ee79952f42364fe486e5f10701fbf819fbbab1eab478139 \
+    --hash=sha256:7e79bb39c72c3bf1613510fd5cdffe5baa9a7873892bef1d4566f1672c8a42f4
 parse_type==0.6.6 \
     --hash=sha256:3ca79bbe71e170dfccc8ec6c341edfd1c2a0fc1e5cfd18330f93af938de2348c \
     --hash=sha256:513a3784104839770d690e04339a8b4d33439fcd5dd99f2e4580f9fc1097bfb2
 pluggy==1.6.0 \
     --hash=sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3 \
     --hash=sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746
-pubkit @ https://github.com/schryer/pubkit/releases/download/v0.3.1/pubkit-0.3.1-py3-none-any.whl \
-    --hash=sha256:a2afdbb27e36ff79cb553e60017ea07dd90ef359f3d7ace0b3679d7bd68b923d
+pubkit @ https://github.com/schryer/pubkit/releases/download/v0.5.0/pubkit-0.5.0-py3-none-any.whl \
+    --hash=sha256:1af8214642aae94a5aa457191e784a64a2f677715f033778cb619e2ffbe35db4
 Pygments==2.21.0 \
     --hash=sha256:2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9 \
     --hash=sha256:610ca751c9bc2492b38eb9a38a7fbc93edbbb2d7182edaf34e66ae493dee5c8c
