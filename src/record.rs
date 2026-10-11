@@ -2,7 +2,7 @@
 //! and the package publet its releases are versions of.
 //!
 //! Building and publishing the package publet -- which signs it -- go
-//! through the installed `pub`, a released 0.x (`^0.1`). Reading it back is
+//! through the installed `pub`, a release from 0.1 or 0.2 (`>=0.1.0, <0.3.0`). Reading it back is
 //! done here, with `publet-core` (see `published`).
 
 use std::path::{Path, PathBuf};
@@ -459,7 +459,7 @@ pub fn package_source(
 
 /// The `pub` releases this pubrel works with.
 static PUB_REQUIRED: std::sync::LazyLock<semver::VersionReq> = std::sync::LazyLock::new(|| {
-    semver::VersionReq::parse("^0.1").unwrap_or(semver::VersionReq::STAR)
+    semver::VersionReq::parse(">=0.1.0, <0.3.0").unwrap_or(semver::VersionReq::STAR)
 });
 
 /// The `pub` to drive: `$PUB`, or `pub` on the PATH.
@@ -467,8 +467,10 @@ pub fn pub_program() -> String {
     std::env::var("PUB").unwrap_or_else(|_| "pub".to_owned())
 }
 
-/// Confirm the `pub` this will drive is a release `^0.1` admits, as Cargo
-/// reads it: at least 0.1.0 and below 0.2.0.
+/// Confirm the `pub` this will drive is one pubrel is tested with: at
+/// least 0.1.0 and below 0.3.0. pub 0.2.0 changed only render pipelines'
+/// tool requirements, which pubrel does not use; a later minor version is
+/// admitted once the suite passes against it.
 ///
 /// # Errors
 ///
@@ -490,9 +492,9 @@ pub fn require_pub() -> Result<(), String> {
         .filter(|v| PUB_REQUIRED.matches(v));
     if version.is_none() {
         return Err(format!(
-            "pubrel drives a released pub ^0.1, and `{program} --version` says {first:?}; \
-             install one: cargo install --locked --git https://github.com/schryer/publet \
-             --tag v0.1.1 publet-cli"
+            "pubrel drives a released pub from 0.1 or 0.2, and `{program} --version` says \
+             {first:?}; install one: cargo install --locked --git \
+             https://github.com/schryer/publet --tag v0.2.0 publet-cli"
         ));
     }
     Ok(())
