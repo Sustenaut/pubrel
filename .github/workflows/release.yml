@@ -23,7 +23,7 @@ on:
         type: string
         default: ''
       pubrel-version:
-        description: The pubrel tag to install pubrel from; empty builds it from this checkout.
+        description: The pubrel release to install (vX.Y.Z); empty builds it from this checkout. 0.5.0 and later come from crates.io, earlier ones from their git tag.
         type: string
         default: ''
       semver-checks-version:
@@ -47,8 +47,15 @@ jobs:
       - name: Install pubrel
         run: |
           if [ -n "$INPUT_PUBREL" ]; then
-            command -v pubrel >/dev/null && pubrel --version | grep -q "^pubrel ${INPUT_PUBREL#v}$" \
-              || cargo install --locked --git https://github.com/schryer/pubrel --tag "$INPUT_PUBREL" pubrel
+            version="${INPUT_PUBREL#v}"
+            if command -v pubrel >/dev/null && pubrel --version | grep -q "^pubrel ${version}$"; then
+              :
+            elif [ "$(printf '%s\n0.5.0\n' "$version" | sort -V | head -1)" = 0.5.0 ]; then
+              # Published to crates.io from 0.5.0: the same source as the tag.
+              cargo install --locked pubrel --version "$version"
+            else
+              cargo install --locked --git https://github.com/schryer/pubrel --tag "$INPUT_PUBREL" pubrel
+            fi
           else
             cargo install --locked --path .
           fi

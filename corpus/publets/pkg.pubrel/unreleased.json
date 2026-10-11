@@ -3,6 +3,10 @@
     {
       "category": "added",
       "change": "release.json's `install` may name `{version}` as well as `{tag}`, so release notes can install from crates.io. pubrel's own notes and README now do: `cargo install --locked pubrel`."
+    },
+    {
+      "category": "added",
+      "change": "The shared release workflow installs pubrel 0.5.0 and later from crates.io (`cargo install --locked pubrel --version X.Y.Z`); earlier versions still come from their git tag."
     }
   ],
   "comment": "Changes not yet released. One row per change: category changed or removed (a published interface changed: major), added (a feature: minor), or fixed or security (patch). `pubrel add` appends one; `pubrel summary` sets the release's summary; `pubrel prepare` moves them into the package publet."
