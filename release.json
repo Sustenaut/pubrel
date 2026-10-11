@@ -33,7 +33,8 @@
       },
       {
         "name": "supply-chain report current",
-        "run": "./tools/supply-chain-report.py --check pubrel && echo 'SUPPLY-CHAIN.md current'"
+        "run": ".venv/bin/pubkit supply-chain --check pubrel",
+        "version": ".venv/bin/pubkit --version"
       }
     ],
     "facts": [

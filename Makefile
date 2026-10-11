@@ -1,5 +1,9 @@
 # The shared targets (venv, lock, fmt, lint, test, doc, build, functional)
 # come from pubkit.mk, which pubkit manages; this file adds pubrel's own.
+# SUPPLY-CHAIN.md is written for these crates by pubkit.mk's
+# `make supply-chain`, and checked by `make supply-chain-check`.
+SUPPLY_CHAIN_CRATES := pubrel
+
 include pubkit.mk
 
 .DEFAULT_GOAL := help
@@ -7,7 +11,7 @@ export PUBREL_BIN_DIR ?= $(CURDIR)/target/debug
 # The released pub the suite drives; override to point elsewhere.
 export PUB_BIN_DIR ?= $(dir $(shell command -v pub 2>/dev/null || echo $(HOME)/.cargo/bin/pub))
 
-.PHONY: check clean fuzz-smoke deny vet supply-chain supply-chain-check publish-check msrv
+.PHONY: check clean fuzz-smoke deny vet publish-check msrv
 
 check: sync-check fmt-check lint test doc functional publish-check supply-chain-check vet deny ## Everything CI runs
 
@@ -32,12 +36,6 @@ fuzz-smoke: ## Replay fuzz regressions, then fuzz each target briefly (needs nig
 # reports pubrel Fresh however src/ changes, and tests run a stale binary.
 publish-check: ## Package pubrel and verify it builds as published
 	CARGO_TARGET_DIR=$(CURDIR)/target/publish-check $(CARGO) publish --dry-run --locked
-
-supply-chain: ## Regenerate SUPPLY-CHAIN.md from supply-chain/
-	./tools/supply-chain-report.py pubrel
-
-supply-chain-check: ## Fail if the committed SUPPLY-CHAIN.md is stale
-	./tools/supply-chain-report.py --check pubrel
 
 vet: ## Every dependency is audited, trusted, or exempt with its evidence
 	cargo vet --locked
