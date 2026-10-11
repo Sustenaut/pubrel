@@ -1,17 +1,4 @@
 {
-  "changes": [
-    {
-      "category": "added",
-      "change": "release.json's `install` may name `{version}` as well as `{tag}`, so release notes can install from crates.io. pubrel's own notes and README now do: `cargo install --locked pubrel`."
-    },
-    {
-      "category": "added",
-      "change": "The shared release workflow installs pubrel 0.5.0 and later from crates.io (`cargo install --locked pubrel --version X.Y.Z`); earlier versions still come from their git tag."
-    },
-    {
-      "category": "fixed",
-      "change": "pubrel drives pub 0.2 as well as 0.1: it refused pub 0.2.0, the current publet-cli, though its whole suite passes against it. pub 0.2.0 changed only render pipelines' tool requirements, which pubrel does not use. CI now runs the suite against pub 0.2.0."
-    }
-  ],
+  "changes": [],
   "comment": "Changes not yet released. One row per change: category changed or removed (a published interface changed: major), added (a feature: minor), or fixed or security (patch). `pubrel add` appends one; `pubrel summary` sets the release's summary; `pubrel prepare` moves them into the package publet."
 }
