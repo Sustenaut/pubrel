@@ -10,23 +10,19 @@ on:
   workflow_dispatch:
 
 jobs:
-  # The shared Rust CI: gates, cargo test on three platforms, the Gherkin
-  # suite against a released pub, and:
-  # - fuzz: what `check` reads from a pull request (fuzz/), after replaying
-  #   every input that once found a bug;
-  # - msrv: a build on the oldest Rust pubrel promises, its rust-version;
-  # - cross: the tests on a 32-bit and a big-endian machine.
+  # pubkit's shared Rust CI. It runs every check the Rust crate standard
+  # requires (`make required` lists them): fmt, clippy, docs and packaging;
+  # the tests on Linux, macOS, Windows, i686 and s390x; the Gherkin suite
+  # against a released pub, and the supply-chain report; the oldest
+  # promised Rust; fuzzing of what `check` reads from a pull request, after
+  # replaying every input that once found a bug; and cargo deny and vet.
   ci:
-    uses: schryer/pubkit/.github/workflows/rust-ci.yml@v0.3.1
+    uses: schryer/pubkit/.github/workflows/rust-ci.yml@v0.6.0
     with:
       pub-version: v0.2.0
-      functional: functional supply-chain-check
-      fuzz: true
-      msrv: true
-      cross-targets: '["i686-unknown-linux-gnu", "s390x-unknown-linux-gnu"]'
 
-  # Advisories, licences and sources (cargo deny), and every dependency
-  # audited, trusted or exempt with its evidence (cargo vet).
+  # cargo deny and cargo vet. ci's own audit job now runs the same; this
+  # one stays while the branch ruleset requires a check named `audit`.
   audit:
     runs-on: ubuntu-latest
     steps:
