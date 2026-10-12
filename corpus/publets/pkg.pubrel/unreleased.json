@@ -1,4 +1,17 @@
 {
-  "changes": [],
+  "changes": [
+    {
+      "category": "added",
+      "change": "`check` and `tag` follow a key rotation (publet spec Section 10.5): a release signed by a key the release key rotates from verifies, when both keys signed the rotation, so release.json can name a new key without breaking earlier releases"
+    },
+    {
+      "category": "fixed",
+      "change": "`withdraw` no longer discards key objects or the signatures that rotate a key: withdrawing a first release discarded the corpus's key, and the release cut again failed `check` with \"the release key ... is not in objects\""
+    },
+    {
+      "category": "fixed",
+      "change": "A release without a summary of its own is no longer held to the previous release's summary, which the lock keeps and which may be signed by an earlier key"
+    }
+  ],
   "comment": "Changes not yet released. One row per change: category changed or removed (a published interface changed: major), added (a feature: minor), or fixed or security (patch). `pubrel add` appends one; `pubrel summary` sets the release's summary; `pubrel prepare` moves them into the package publet."
 }

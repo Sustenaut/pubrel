@@ -23,13 +23,19 @@ Earlier versions get no separate fixes.
 
 - every object they read must hash to the identifier that names it;
 - a release's `identity` and `release` claims must carry a valid Ed25519
-  signature by the key `release.json` names. So must its `security` claim
-  when `release.json` declares security checks, and its `summary` claim
-  when the corpus lock records one.
+  signature by the key `release.json` names, or by a key it rotates from.
+  So must its `security` claim when `release.json` declares security
+  checks, and its `summary` claim when it has one.
 
 If `release.json` names no `key`, they print a warning and do not check
 signatures. The key is trusted because the repository names it, so a change
 to `key` is a change to `release.json`, reviewed like any other.
+
+A rotation carries that trust back to an earlier key only when the newer
+key's object names it in `rotates` and both keys signed that object for the
+purpose `rotation` (publet spec Section 10.5). A key that merely claims to
+rotate from the release key, signed by itself alone, gains nothing. At most
+64 rotations are followed.
 
 `pubrel prepare` runs the commands that `release.json`'s `security` section
 declares, with `sh -c`, on the machine of whoever cuts the release. Treat

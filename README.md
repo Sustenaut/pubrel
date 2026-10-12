@@ -91,7 +91,9 @@ pubrel prepare                  # from main, as usual
 ```
 
 `pubrel withdraw` lists every object that release added in
-`corpus/.draft-discards`, which `pub` never exports. It keeps that file out
+`corpus/.draft-discards`, which `pub` never exports, except key objects and
+the signatures that rotate a key: those are the corpus's, not the
+release's, and the first release is the one that exports its key. It keeps that file out
 of git through the clone's own exclude file. It refuses a release that is
 already merged, and a branch that adds no release record. Given a pull
 request number, it asks `gh` for its state: an open pull request must be
@@ -105,7 +107,9 @@ A release may open with a summary, set by `pubrel summary`: a paragraph,
 in prose, of what the release is about. It is published as a `summary`
 claim, signed with the release, and the changelog and GitHub release show
 it above the list of changes. Recording a change keeps it, and `prepare`
-moves it into the release with the rows.
+moves it into the release with the rows. A release without a summary is not held
+to an earlier release's: `check` and `tag` require the summary signed only
+when it names the version being released.
 
 ## release.json
 
@@ -126,6 +130,13 @@ moves it into the release with the rows.
 `identity` and `release` claims carry a valid signature by it, and that every
 object they read hashes to its identifier. Without `key` they warn and do
 not check signatures.
+
+A key is replaced by rotating it (`pub sign --rotate`, publet spec Section
+10.5): a new key object names the old one in `rotates`, and both keys sign
+it for the purpose `rotation`. `release.json` then names the new key, and
+`check` and `tag` also accept a signature by any key it rotates from, through
+a chain of such rotations, so earlier releases still verify. A rotation that
+only one key signed is not followed.
 
 A repository that releases more than one package lists them under
 `packages`. `corpus` and `key` at the top are shared:

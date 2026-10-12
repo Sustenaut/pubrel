@@ -371,6 +371,13 @@ pub fn write_changes(path: &Path, rows: &[Change], summary: Option<&str>) -> Res
 /// "pubrel 0.5.0 in brief: ...".
 const BRIEF: &str = " in brief: ";
 
+/// Whether the summary claim `content` is the summary of `version` of
+/// `cfg`: its content reads "`<name> <version> in brief: ...`".
+#[must_use]
+pub fn summarizes(cfg: &Config, content: &str, version: &Version) -> bool {
+    content.starts_with(&format!("{}{version}{BRIEF}", prefix(cfg)))
+}
+
 /// What every claim's content about a release of `cfg` starts with.
 fn prefix(cfg: &Config) -> String {
     format!("{} ", cfg.name)
@@ -766,6 +773,28 @@ mod tests {
             .is_err()
         );
         assert!(changes(None).unwrap().is_empty());
+    }
+
+    // covers: record::summarizes
+    // The lock keeps the last summary after a release without one; it is
+    // that earlier release's, and the new release is not held to it.
+    #[test]
+    fn a_summary_belongs_to_the_version_it_names() {
+        let cfg = Config::parse_all(
+            std::path::Path::new("/repo"),
+            r#"{"name": "demo", "package": "pkg.demo", "tag": "PKG-DEMODE-10-2026",
+                "corpus": "corpus", "manifest": {"kind": "cargo-package", "path": "Cargo.toml"},
+                "code": ["src/"]}"#,
+            "release.json",
+        )
+        .unwrap()
+        .remove(0);
+        let v010 = Version::new(0, 1, 0);
+        let v011 = Version::new(0, 1, 1);
+        let content = "demo 0.1.0 in brief: the first release.";
+        assert!(summarizes(&cfg, content, &v010));
+        assert!(!summarizes(&cfg, content, &v011));
+        assert!(!summarizes(&cfg, "other 0.1.0 in brief: x", &v010));
     }
 
     // covers: record::summary
