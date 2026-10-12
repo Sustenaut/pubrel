@@ -177,8 +177,8 @@ parse_type==0.6.6 \
 pluggy==1.6.0 \
     --hash=sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3 \
     --hash=sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746
-pubkit @ https://github.com/schryer/pubkit/releases/download/v0.5.0/pubkit-0.5.0-py3-none-any.whl \
-    --hash=sha256:1af8214642aae94a5aa457191e784a64a2f677715f033778cb619e2ffbe35db4
+pubkit @ https://github.com/schryer/pubkit/releases/download/v0.6.0/pubkit-0.6.0-py3-none-any.whl \
+    --hash=sha256:3e38ff3e845d25d1d0df814ec1694a48a71c5266050526b33aa5354d7d6b8bc2
 Pygments==2.21.0 \
     --hash=sha256:2363c69b61c4a97c838da3b130dcd6468f4848992b21a82f2a63ec34377137d9 \
     --hash=sha256:610ca751c9bc2492b38eb9a38a7fbc93edbbb2d7182edaf34e66ae493dee5c8c
