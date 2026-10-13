@@ -21,22 +21,11 @@ jobs:
     with:
       pub-version: v0.2.0
 
-  # cargo deny and cargo vet. ci's own audit job now runs the same; this
-  # one stays while the branch ruleset requires a check named `audit`.
-  audit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - run: cargo install --locked cargo-deny --version 0.20.2
-      - run: make deny
-      - run: cargo install --locked cargo-vet --version 0.10.2
-      - run: make vet
-
   # pubrel is held to its own rules, by its own workflow, built from this
   # checkout -- so a change to the workflow is tested before a release
   # carries it to anyone else.
   release:
-    needs: [ci, audit]
+    needs: ci
     uses: ./.github/workflows/release.yml
     permissions:
       contents: write
