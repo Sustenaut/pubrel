@@ -563,7 +563,7 @@ fn prepare(open_pr: bool, package: Option<&str>) -> Result<(), String> {
     if let Some(line) = check_api(&cfg, &categories(&rows))? {
         println!("{line}");
     }
-    let security = security::run(&cfg.security, &cfg.root)?;
+    let security = security::run(&cfg.security, &cfg.root, &cfg.name, &release.to_string())?;
     let date = today()?;
     let tag = cfg.git_tag(&release);
     let branch = format!("release/{tag}");

@@ -108,10 +108,24 @@ pub struct Row {
     pub result: String,
 }
 
-fn shell(command: &str, dir: &Path) -> Result<Output, String> {
+/// The release being cut, which every check and fact is told through its
+/// environment: `PUBREL_PACKAGE` (the package's name) and
+/// `PUBREL_VERSION`. A check can then judge that release, such as `pubkit
+/// audit --check` finding its audit report.
+#[derive(Debug, Clone, Copy)]
+struct Release<'a> {
+    /// The package's name, as `release.json` gives it.
+    package: &'a str,
+    /// The version being released.
+    version: &'a str,
+}
+
+fn shell(command: &str, dir: &Path, release: Release<'_>) -> Result<Output, String> {
     let out = Command::new("sh")
         .args(["-c", command])
         .current_dir(dir)
+        .env("PUBREL_PACKAGE", release.package)
+        .env("PUBREL_VERSION", release.version)
         .output()
         .map_err(|e| format!("cannot run `{command}`: {e}"))?;
     Ok(Output {
@@ -167,7 +181,8 @@ fn last_line(text: &str) -> String {
 ///
 /// A check's result is the last line it printed to stdout, and a fact's
 /// value or a tool's version is the first. Each falls back to stderr only
-/// when stdout is empty.
+/// when stdout is empty. Every command sees the release being cut in
+/// `PUBREL_PACKAGE` and `PUBREL_VERSION`.
 ///
 /// # Errors
 ///
@@ -176,11 +191,17 @@ fn last_line(text: &str) -> String {
 /// `sh` cannot be started for any command. A check's `version` command
 /// that exits non-zero is not an error: its first line is recorded as it
 /// is. A release is cut only when this succeeds.
-pub fn run(declared: &Declared, dir: &Path) -> Result<Vec<Row>, String> {
+pub fn run(
+    declared: &Declared,
+    dir: &Path,
+    package: &str,
+    version: &str,
+) -> Result<Vec<Row>, String> {
+    let release = Release { package, version };
     let mut rows = Vec::new();
     for check in &declared.checks {
         println!("security check {}: {}", check.name, check.run);
-        let output = shell(&check.run, dir)?;
+        let output = shell(&check.run, dir, release)?;
         if !output.ok {
             let both = output.both();
             let tail: Vec<&str> = both.lines().rev().take(12).collect();
@@ -192,7 +213,7 @@ pub fn run(declared: &Declared, dir: &Path) -> Result<Vec<Row>, String> {
             ));
         }
         let tool = match &check.version {
-            Some(command) => first_line(shell(command, dir)?.result()),
+            Some(command) => first_line(shell(command, dir, release)?.result()),
             None => String::new(),
         };
         rows.push(Row {
@@ -204,7 +225,7 @@ pub fn run(declared: &Declared, dir: &Path) -> Result<Vec<Row>, String> {
         });
     }
     for fact in &declared.facts {
-        let output = shell(&fact.run, dir)?;
+        let output = shell(&fact.run, dir, release)?;
         if !output.ok {
             return Err(format!(
                 "security fact `{}` could not be read: `{}` failed",
@@ -227,6 +248,20 @@ pub fn run(declared: &Declared, dir: &Path) -> Result<Vec<Row>, String> {
 mod tests {
     use super::*;
 
+    const RELEASE: Release<'static> = Release {
+        package: "demo",
+        version: "1.2.3",
+    };
+
+    // covers: security::run
+    // A check is told which release it is checking.
+    #[test]
+    fn checks_see_the_release_being_cut() {
+        let dir = std::env::temp_dir();
+        let out = shell("echo \"$PUBREL_PACKAGE $PUBREL_VERSION\"", &dir, RELEASE).unwrap();
+        assert_eq!(out.stdout.trim(), "demo 1.2.3");
+    }
+
     // covers: security::first_line, security::last_line
     #[test]
     fn summaries_are_the_first_and_last_lines_printed() {
@@ -243,13 +278,14 @@ mod tests {
         let out = shell(
             "printf 'advisories ok\\n'; printf 'duplicate syn\\n' >&2",
             &dir,
+            RELEASE,
         )
         .unwrap();
         assert_eq!(last_line(out.result()), "advisories ok");
-        let quiet = shell("printf 'only on stderr\\n' >&2", &dir).unwrap();
+        let quiet = shell("printf 'only on stderr\\n' >&2", &dir, RELEASE).unwrap();
         assert_eq!(last_line(quiet.result()), "only on stderr");
         assert!(
-            shell("echo a; echo b >&2; exit 1", &dir)
+            shell("echo a; echo b >&2; exit 1", &dir, RELEASE)
                 .unwrap()
                 .both()
                 .contains('b')
