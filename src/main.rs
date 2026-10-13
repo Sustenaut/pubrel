@@ -400,13 +400,20 @@ fn check_api(cfg: &Config, categories: &[&str]) -> Result<Option<String>, String
 
 /// The claims a release of `cfg` must carry, signed: its identity, its
 /// changes, and -- when release.json declares security checks -- the record
-/// of them. A summary, when the lock records one, must be signed too.
+/// of them. Its summary must be signed too, when it has one: the lock keeps
+/// the last summary after a release without one, and that summary belongs
+/// to an earlier release, signed when that one was.
 fn record_parts(cfg: &Config, lock: Option<&str>) -> Vec<&'static str> {
     let mut parts = vec!["identity", "release"];
     if !cfg.security.is_empty() {
         parts.push("security");
     }
-    if record::locked(lock, &format!("{}#summary", cfg.package)).is_some() {
+    let summary = record::locked(lock, &format!("{}#summary", cfg.package));
+    let version = record::published_version(cfg, lock).ok().flatten();
+    if let (Some(cid), Some(version)) = (summary, version)
+        && published::content_of(cfg, &cid)
+            .is_some_and(|content| record::summarizes(cfg, &content, &version))
+    {
         parts.push("summary");
     }
     parts

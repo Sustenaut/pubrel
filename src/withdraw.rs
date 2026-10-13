@@ -128,14 +128,7 @@ pub fn withdraw(cfg: &Config, which: &str) -> Result<String, String> {
         return Err(format!("{which} adds no objects to {objects_rel}"));
     }
     let content_at = |cid: &str| -> Option<String> {
-        let path = format!("{objects_rel}/{}.cbor", cid.replace(':', "_"));
-        let bytes = Command::new("git")
-            .args(["show", &format!("{commit}:{path}")])
-            .current_dir(root)
-            .output()
-            .ok()?
-            .stdout;
-        crate::published::claim_content(&bytes)
+        crate::published::claim_content(&object_at(root, &commit, &objects_rel, cid)?)
     };
     let records: Vec<String> = added
         .iter()
@@ -148,6 +141,9 @@ pub fn withdraw(cfg: &Config, which: &str) -> Result<String, String> {
         ));
     };
 
+    let (kept, added): (Vec<String>, Vec<String>) = added
+        .into_iter()
+        .partition(|c| corpus_identity(object_at(root, &commit, &objects_rel, c).as_deref()));
     let discards = root.join(&cfg.corpus).join(".draft-discards");
     let fresh = list_discards(&discards, &format!("withdrawn {which}"), &added)?;
     let rel = discards
@@ -160,12 +156,42 @@ pub fn withdraw(cfg: &Config, which: &str) -> Result<String, String> {
         Some(pr) if !pr.fork => remove_branch(root, &pr.branch)?,
         _ => String::new(),
     };
+    let kept = if kept.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "; {} key or rotation object(s) kept, which belong to the corpus, not the release",
+            kept.len()
+        )
+    };
     Ok(format!(
         "withdrew {which} ({record}): {} object(s) listed in {rel}, {} of them already; \
-         pub will not export them again{removed}",
+         pub will not export them again{kept}{removed}",
         added.len(),
         added.len() - fresh
     ))
+}
+
+/// The bytes of the object `cid` in `objects_rel` at `commit`.
+fn object_at(root: &Path, commit: &str, objects_rel: &str, cid: &str) -> Option<Vec<u8>> {
+    let path = format!("{objects_rel}/{}.cbor", cid.replace(':', "_"));
+    Command::new("git")
+        .args(["show", &format!("{commit}:{path}")])
+        .current_dir(root)
+        .output()
+        .ok()
+        .map(|o| o.stdout)
+}
+
+/// Whether an object is the corpus's identity rather than a release's: a
+/// key, or a signature that rotates one. The first release exports the
+/// corpus's key, and the release cut again in its place needs it too.
+fn corpus_identity(bytes: Option<&[u8]>) -> bool {
+    bytes
+        .and_then(crate::published::kind_and_purpose)
+        .is_some_and(|(kind, purpose)| {
+            kind == "key" || (kind == "sig" && purpose.as_deref() == Some("rotation"))
+        })
 }
 
 /// What `gh` says of a pull request.
