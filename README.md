@@ -188,7 +188,10 @@ beside them:
 ```
 
 `pubrel prepare` runs every check before it changes anything, and cuts no
-release if one fails. It records what ran in a `security` claim in the
+release if one fails. Each check and fact runs with the release it is
+checking in its environment, `PUBREL_PACKAGE` (the package's name) and
+`PUBREL_VERSION`, so a check can judge that release: `pubkit audit --check`
+finds the quality audit report for it this way. It records what ran in a `security` claim in the
 package publet: each check's command, its tool and version, and the last
 line the tool printed, beside each fact's value. The claim is signed with
 the release, and the changelog and the GitHub release list it. `check` and
