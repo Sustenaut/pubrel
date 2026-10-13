@@ -18,7 +18,7 @@
     "check": "pubrel --version"
   },
   "install": "cargo install --locked pubrel --version {version}",
-  "key": "pub:sha2-256:tgaiwo4ow4sfqfopfr7vk3oqtnz5au2z74qzje7xbvvwgzwvx7fa",
+  "key": "pub:sha2-256:s4qaxrbb7bjyfk7lffpkg7a44lv2cawzxky6qb3vlcoknetiufxq",
   "security": {
     "checks": [
       {
