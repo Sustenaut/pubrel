@@ -2,7 +2,7 @@
   "claims": {
     "identity": {
       "class": "archival",
-      "content": "pubrel 0.5.1 is released as v0.5.1 from commit e070f0e53e9780d64e2f99b7c117e7f2f3c9c302.",
+      "content": "pubrel 0.5.2 is released as v0.5.2 from commit f2014176172503d04108028486f69874cfba8a88.",
       "data": {
         "columns": [
           {
@@ -27,25 +27,25 @@
         "rows": [
           [
             "pubrel",
-            "0.5.1",
+            "0.5.2",
             "pubrel --version",
-            "pubrel 0.5.1",
-            "v0.5.1",
-            "e070f0e53e9780d64e2f99b7c117e7f2f3c9c302"
+            "pubrel 0.5.2",
+            "v0.5.2",
+            "f2014176172503d04108028486f69874cfba8a88"
           ]
         ]
       },
-      "scope": "the published release v0.5.1 of pubrel",
+      "scope": "the published release v0.5.2 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "e070f0e53e9780d64e2f99b7c117e7f2f3c9c302"
+          "revision": "f2014176172503d04108028486f69874cfba8a88"
         }
       ]
     },
     "release": {
       "class": "archival",
-      "content": "pubrel 0.5.1 was released on 2026-10-11 from commit e070f0e53e9780d64e2f99b7c117e7f2f3c9c302 with these changes.",
+      "content": "pubrel 0.5.2 was released on 2026-10-13 from commit f2014176172503d04108028486f69874cfba8a88 with these changes.",
       "data": {
         "columns": [
           {
@@ -58,32 +58,32 @@
         "rows": [
           [
             "added",
-            "release.json's `install` may name `{version}` as well as `{tag}`, so release notes can install from crates.io. pubrel's own notes and README now do: `cargo install --locked pubrel`."
-          ],
-          [
-            "added",
-            "The shared release workflow installs pubrel 0.5.0 and later from crates.io (`cargo install --locked pubrel --version X.Y.Z`); earlier versions still come from their git tag."
+            "`check` and `tag` follow a key rotation (publet spec Section 10.5): a release signed by a key the release key rotates from verifies, when both keys signed the rotation, so release.json can name a new key without breaking earlier releases"
           ],
           [
             "fixed",
-            "pubrel drives pub 0.2 as well as 0.1: it refused pub 0.2.0, the current publet-cli, though its whole suite passes against it. pub 0.2.0 changed only render pipelines' tool requirements, which pubrel does not use. CI now runs the suite against pub 0.2.0."
+            "`withdraw` no longer discards key objects or the signatures that rotate a key: withdrawing a first release discarded the corpus's key, and the release cut again failed `check` with \"the release key ... is not in objects\""
+          ],
+          [
+            "fixed",
+            "A release without a summary of its own is no longer held to the previous release's summary, which the lock keeps and which may be signed by an earlier key"
           ]
         ]
       },
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.5.1 of pubrel",
+      "scope": "the published release v0.5.2 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "e070f0e53e9780d64e2f99b7c117e7f2f3c9c302"
+          "revision": "f2014176172503d04108028486f69874cfba8a88"
         }
       ]
     },
     "security": {
       "class": "archival",
-      "content": "pubrel 0.5.1 passed these security checks before release on 2026-10-11.",
+      "content": "pubrel 0.5.2 passed these security checks before release on 2026-10-13.",
       "data": {
         "columns": [
           {
@@ -121,7 +121,7 @@
             "check",
             "supply-chain report current",
             ".venv/bin/pubkit supply-chain --check pubrel",
-            "pubkit 0.5.0",
+            "pubkit 0.6.0",
             "SUPPLY-CHAIN.md current for pubrel"
           ],
           [
@@ -129,7 +129,7 @@
             "RustSec advisory database revision",
             "git -C \"$(ls -d ~/.cargo/advisory-dbs/advisory-db-*/ | head -1)\" log -1 --format='%H (%cs)'",
             "",
-            "7eebec69c352c7191b1f13eb95dd510eeca5d1de (2026-10-09)"
+            "57dcc0f2192e025138907a495c1ac9a7e1e3e123 (2026-10-12)"
           ],
           [
             "fact",
@@ -143,16 +143,16 @@
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.5.1 of pubrel",
+      "scope": "the published release v0.5.2 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "e070f0e53e9780d64e2f99b7c117e7f2f3c9c302"
+          "revision": "f2014176172503d04108028486f69874cfba8a88"
         }
       ]
     }
   },
-  "created": "2026-10-11T00:00:00Z",
+  "created": "2026-10-13T00:00:00Z",
   "sections": [
     {
       "heading": "Identity",
