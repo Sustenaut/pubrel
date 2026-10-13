@@ -30,19 +30,19 @@ macro (P): code that runs while compiling.
 | `libc` | 0.2.190 | B | not audited (exempt) | Built only on targets where cpufeatures needs it (aarch64 Linux, for sha2), not on x86_64. No full audit in the imported sets as of 2026-10-09; Mozilla's safe-to-deploy deltas reach 0.2.176. |
 | `memchr` | 2.8.3 | - | not audited (exempt) | No full audit in the imported sets as of 2026-10-09; Zcash's safe-to-deploy deltas reach 2.7.5. |
 | `proc-macro2` | 1.0.107 | B | trusted publisher (dtolnay) | Trusted by Mozilla, ISRG and the Bytecode Alliance, whose audits this project imports; pubrel adopts their decision rather than re-reviewing, as publet does. |
-| `publet-core` | 0.1.2 | - | trusted publisher (schryer) | Published by pubrel's own author from the publet repository, where it is developed, fuzzed and released under the same rules as pubrel. |
+| `publet-core` | 0.1.3 | - | trusted publisher (schryer) | Published by pubrel's own author from the publet repository, where it is developed, fuzzed and released under the same rules as pubrel. |
 | `quote` | 1.0.47 | B | audited by mozilla |  |
 | `rustc_version` | 0.4.1 | - | audited by bytecode-alliance |  |
 | `semver` | 1.0.28 | - | audited by mozilla |  |
 | `serde` | 1.0.229 | B | trusted publisher (dtolnay) | Trusted by Mozilla, ISRG and the Bytecode Alliance, whose audits this project imports; pubrel adopts their decision rather than re-reviewing, as publet does. |
 | `serde_core` | 1.0.229 | B | trusted publisher (dtolnay) | Trusted by Mozilla, ISRG and the Bytecode Alliance, whose audits this project imports; pubrel adopts their decision rather than re-reviewing, as publet does. |
 | `serde_derive` | 1.0.229 | P | trusted publisher (dtolnay) | Trusted by Mozilla, ISRG and the Bytecode Alliance, whose audits this project imports; pubrel adopts their decision rather than re-reviewing, as publet does. |
-| `serde_json` | 1.0.151 | B | trusted publisher (dtolnay) | Trusted by Mozilla, ISRG and the Bytecode Alliance, whose audits this project imports; pubrel adopts their decision rather than re-reviewing, as publet does. |
+| `serde_json` | 1.0.154 | B | trusted publisher (dtolnay) | Trusted by Mozilla, ISRG and the Bytecode Alliance, whose audits this project imports; pubrel adopts their decision rather than re-reviewing, as publet does. |
 | `sha2` | 0.10.9 | - | audited by isrg |  |
 | `signature` | 2.2.0 | - | audited by zcash |  |
 | `subtle` | 2.6.1 | - | audited by isrg |  |
 | `syn` | 2.0.119 | - | trusted publisher (dtolnay) | Trusted by Mozilla, ISRG and the Bytecode Alliance, whose audits this project imports; pubrel adopts their decision rather than re-reviewing, as publet does. |
-| `syn` | 3.0.6 | - | trusted publisher (dtolnay) | Trusted by Mozilla, ISRG and the Bytecode Alliance, whose audits this project imports; pubrel adopts their decision rather than re-reviewing, as publet does. |
+| `syn` | 3.0.9 | - | trusted publisher (dtolnay) | Trusted by Mozilla, ISRG and the Bytecode Alliance, whose audits this project imports; pubrel adopts their decision rather than re-reviewing, as publet does. |
 | `thiserror` | 2.0.21 | B | trusted publisher (dtolnay) | Trusted by Mozilla, ISRG and the Bytecode Alliance, whose audits this project imports; pubrel adopts their decision rather than re-reviewing, as publet does. |
 | `thiserror-impl` | 2.0.21 | P | trusted publisher (dtolnay) | Trusted by Mozilla, ISRG and the Bytecode Alliance, whose audits this project imports; pubrel adopts their decision rather than re-reviewing, as publet does. |
 | `tinyvec` | 1.13.3 | - | not audited (exempt) | Imported audits as of 2026-10-09 reach 1.9.0 (Google, the Bytecode Alliance); later versions are not audited in any imported set. |
@@ -50,7 +50,7 @@ macro (P): code that runs while compiling.
 | `toml_edit` | 0.22.27 | - | trusted publisher (epage) | Trusted by Mozilla and the Bytecode Alliance, whose audits this project imports; pubrel adopts their decision rather than re-reviewing. |
 | `toml_write` | 0.1.2 | - | trusted publisher (epage) | Trusted by Mozilla and the Bytecode Alliance, whose audits this project imports; pubrel adopts their decision rather than re-reviewing. |
 | `typenum` | 1.20.1 | - | not audited (exempt) | Mozilla and Zcash published safe-to-deploy deltas 1.15.0 to 1.17.0; nothing covers 1.17.0 to this version, and no set has a full audit. Most of the crate is generated code. As of 2026-10-05. |
-| `unicode-ident` | 1.0.26 | - | trusted publisher (dtolnay) | Trusted by Mozilla, ISRG and the Bytecode Alliance, whose audits this project imports; pubrel adopts their decision rather than re-reviewing, as publet does. |
+| `unicode-ident` | 1.0.27 | - | trusted publisher (dtolnay) | Trusted by Mozilla, ISRG and the Bytecode Alliance, whose audits this project imports; pubrel adopts their decision rather than re-reviewing, as publet does. |
 | `unicode-normalization` | 0.1.25 | - | audited (a chain of imported audits) |  |
 | `version_check` | 0.9.5 | - | not audited (exempt) | Google audited 0.9.4 as safe-to-deploy; the 0.9.4 to 0.9.5 diff (documentation only) awaits review by the maintainer. |
 | `winnow` | 0.7.15 | - | trusted publisher (epage) | Trusted by Mozilla and the Bytecode Alliance, whose audits this project imports; pubrel adopts their decision rather than re-reviewing. |

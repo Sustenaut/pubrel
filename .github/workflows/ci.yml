@@ -19,7 +19,7 @@ jobs:
   ci:
     uses: schryer/pubkit/.github/workflows/rust-ci.yml@v0.9.0
     with:
-      pub-version: v0.2.0
+      pub-version: v0.2.1
 
   # pubrel is held to its own rules, by its own workflow, built from this
   # checkout -- so a change to the workflow is tested before a release
