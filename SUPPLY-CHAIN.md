@@ -30,7 +30,7 @@ macro (P): code that runs while compiling.
 | `libc` | 0.2.190 | B | not audited (exempt) | Built only on targets where cpufeatures needs it (aarch64 Linux, for sha2), not on x86_64. No full audit in the imported sets as of 2026-10-09; Mozilla's safe-to-deploy deltas reach 0.2.176. |
 | `memchr` | 2.8.3 | - | not audited (exempt) | No full audit in the imported sets as of 2026-10-09; Zcash's safe-to-deploy deltas reach 2.7.5. |
 | `proc-macro2` | 1.0.107 | B | trusted publisher (dtolnay) | Trusted by Mozilla, ISRG and the Bytecode Alliance, whose audits this project imports; pubrel adopts their decision rather than re-reviewing, as publet does. |
-| `publet-core` | 0.1.2 | - | trusted publisher (schryer) | Published by pubrel's own author from the publet repository, where it is developed, fuzzed and released under the same rules as pubrel. |
+| `publet-core` | 0.1.3 | - | trusted publisher (its publisher) | Published by pubrel's own author from the publet repository, where it is developed, fuzzed and released under the same rules as pubrel. |
 | `quote` | 1.0.47 | B | audited by mozilla |  |
 | `rustc_version` | 0.4.1 | - | audited by bytecode-alliance |  |
 | `semver` | 1.0.28 | - | audited by mozilla |  |
