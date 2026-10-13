@@ -2,7 +2,7 @@
   "claims": {
     "identity": {
       "class": "archival",
-      "content": "pubrel 0.5.2 is released as v0.5.2 from commit f2014176172503d04108028486f69874cfba8a88.",
+      "content": "pubrel 0.5.3 is released as v0.5.3 from commit d29edc62eafce72ff9e57a16d24f86f0d01fe559.",
       "data": {
         "columns": [
           {
@@ -27,25 +27,25 @@
         "rows": [
           [
             "pubrel",
-            "0.5.2",
+            "0.5.3",
             "pubrel --version",
-            "pubrel 0.5.2",
-            "v0.5.2",
-            "f2014176172503d04108028486f69874cfba8a88"
+            "pubrel 0.5.3",
+            "v0.5.3",
+            "d29edc62eafce72ff9e57a16d24f86f0d01fe559"
           ]
         ]
       },
-      "scope": "the published release v0.5.2 of pubrel",
+      "scope": "the published release v0.5.3 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "f2014176172503d04108028486f69874cfba8a88"
+          "revision": "d29edc62eafce72ff9e57a16d24f86f0d01fe559"
         }
       ]
     },
     "release": {
       "class": "archival",
-      "content": "pubrel 0.5.2 was released on 2026-10-13 from commit f2014176172503d04108028486f69874cfba8a88 with these changes.",
+      "content": "pubrel 0.5.3 was released on 2026-10-13 from commit d29edc62eafce72ff9e57a16d24f86f0d01fe559 with these changes.",
       "data": {
         "columns": [
           {
@@ -58,32 +58,24 @@
         "rows": [
           [
             "added",
-            "`check` and `tag` follow a key rotation (publet spec Section 10.5): a release signed by a key the release key rotates from verifies, when both keys signed the rotation, so release.json can name a new key without breaking earlier releases"
-          ],
-          [
-            "fixed",
-            "`withdraw` no longer discards key objects or the signatures that rotate a key: withdrawing a first release discarded the corpus's key, and the release cut again failed `check` with \"the release key ... is not in objects\""
-          ],
-          [
-            "fixed",
-            "A release without a summary of its own is no longer held to the previous release's summary, which the lock keeps and which may be signed by an earlier key"
+            "`prepare` gives every security check and fact the release it is checking, as PUBREL_PACKAGE and PUBREL_VERSION, so a check such as `pubkit audit --check` can find that release's audit report"
           ]
         ]
       },
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.5.2 of pubrel",
+      "scope": "the published release v0.5.3 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "f2014176172503d04108028486f69874cfba8a88"
+          "revision": "d29edc62eafce72ff9e57a16d24f86f0d01fe559"
         }
       ]
     },
     "security": {
       "class": "archival",
-      "content": "pubrel 0.5.2 passed these security checks before release on 2026-10-13.",
+      "content": "pubrel 0.5.3 passed these security checks before release on 2026-10-13.",
       "data": {
         "columns": [
           {
@@ -121,7 +113,7 @@
             "check",
             "supply-chain report current",
             ".venv/bin/pubkit supply-chain --check pubrel",
-            "pubkit 0.6.0",
+            "pubkit 0.8.0",
             "SUPPLY-CHAIN.md current for pubrel"
           ],
           [
@@ -143,11 +135,11 @@
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.5.2 of pubrel",
+      "scope": "the published release v0.5.3 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "f2014176172503d04108028486f69874cfba8a88"
+          "revision": "d29edc62eafce72ff9e57a16d24f86f0d01fe559"
         }
       ]
     }
