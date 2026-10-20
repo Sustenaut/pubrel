@@ -2,7 +2,7 @@
   "claims": {
     "identity": {
       "class": "archival",
-      "content": "pubrel 0.5.3 is released as v0.5.3 from commit d29edc62eafce72ff9e57a16d24f86f0d01fe559.",
+      "content": "pubrel 0.5.4 is released as v0.5.4 from commit fa79e8a5f575192c94c85518c6fa7e3095ee63cd.",
       "data": {
         "columns": [
           {
@@ -27,25 +27,25 @@
         "rows": [
           [
             "pubrel",
-            "0.5.3",
+            "0.5.4",
             "pubrel --version",
-            "pubrel 0.5.3",
-            "v0.5.3",
-            "d29edc62eafce72ff9e57a16d24f86f0d01fe559"
+            "pubrel 0.5.4",
+            "v0.5.4",
+            "fa79e8a5f575192c94c85518c6fa7e3095ee63cd"
           ]
         ]
       },
-      "scope": "the published release v0.5.3 of pubrel",
+      "scope": "the published release v0.5.4 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "d29edc62eafce72ff9e57a16d24f86f0d01fe559"
+          "revision": "fa79e8a5f575192c94c85518c6fa7e3095ee63cd"
         }
       ]
     },
     "release": {
       "class": "archival",
-      "content": "pubrel 0.5.3 was released on 2026-10-13 from commit d29edc62eafce72ff9e57a16d24f86f0d01fe559 with these changes.",
+      "content": "pubrel 0.5.4 was released on 2026-10-20 from commit fa79e8a5f575192c94c85518c6fa7e3095ee63cd with these changes.",
       "data": {
         "columns": [
           {
@@ -57,25 +57,37 @@
         ],
         "rows": [
           [
+            "internal",
+            "Move to the latest pub* releases"
+          ],
+          [
+            "internal",
+            "Update other crates the supply-chain audits cover"
+          ],
+          [
             "added",
-            "`prepare` gives every security check and fact the release it is checking, as PUBREL_PACKAGE and PUBREL_VERSION, so a check such as `pubkit audit --check` can find that release's audit report"
+            "An `npm` manifest kind: the top-level version of a `package.json`, and the version a `package-lock.json` beside it records, edited in place."
+          ],
+          [
+            "added",
+            "`jsdelivr` in a package's release.json entry: after tagging, `pubrel tag` warms the listed files at the new tag on jsDelivr and purges the version ranges that now resolve to it."
           ]
         ]
       },
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.5.3 of pubrel",
+      "scope": "the published release v0.5.4 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "d29edc62eafce72ff9e57a16d24f86f0d01fe559"
+          "revision": "fa79e8a5f575192c94c85518c6fa7e3095ee63cd"
         }
       ]
     },
     "security": {
       "class": "archival",
-      "content": "pubrel 0.5.3 passed these security checks before release on 2026-10-13.",
+      "content": "pubrel 0.5.4 passed these security checks before release on 2026-10-20.",
       "data": {
         "columns": [
           {
@@ -113,15 +125,22 @@
             "check",
             "supply-chain report current",
             ".venv/bin/pubkit supply-chain --check pubrel",
-            "pubkit 0.8.0",
+            "pubkit 0.9.0",
             "SUPPLY-CHAIN.md current for pubrel"
+          ],
+          [
+            "check",
+            "quality audit current",
+            ".venv/bin/pubkit audit --check",
+            "pubkit 0.9.0",
+            "audit/pubrel-0.5.4.md: pubrel 0.5.4 audited on 2026-10-20 by rust-crate-quality against the current standard (bc3c5b6eeba4); 0 findings block a release"
           ],
           [
             "fact",
             "RustSec advisory database revision",
             "git -C \"$(ls -d ~/.cargo/advisory-dbs/advisory-db-*/ | head -1)\" log -1 --format='%H (%cs)'",
             "",
-            "57dcc0f2192e025138907a495c1ac9a7e1e3e123 (2026-10-12)"
+            "b19b2c83c2493961ccb12f9fc4699a00fb2c6c44 (2026-10-20)"
           ],
           [
             "fact",
@@ -135,16 +154,16 @@
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.5.3 of pubrel",
+      "scope": "the published release v0.5.4 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "d29edc62eafce72ff9e57a16d24f86f0d01fe559"
+          "revision": "fa79e8a5f575192c94c85518c6fa7e3095ee63cd"
         }
       ]
     }
   },
-  "created": "2026-10-13T00:00:00Z",
+  "created": "2026-10-20T00:00:00Z",
   "sections": [
     {
       "heading": "Identity",
