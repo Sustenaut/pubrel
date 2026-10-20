@@ -30,3 +30,30 @@ Feature: CI tags what was published, and only that
     When I run pubrel prepare
     Then it succeeds
     And the pull request's notes say "cargo install --locked demo --version 0.1.1 # from v0.1.1"
+
+  Scenario: A release served through jsDelivr is warmed and its ranges purged
+    Given a cargo package released at version "0.1.0"
+    And release.json serves "app/app.js" through jsDelivr
+    And the repository is "owner/demo" with a recording curl
+    When I run pubrel tag
+    Then it succeeds
+    And it prints "jsDelivr: warmed 1 and purged 3 URLs for v0.1.0"
+    And curl fetched "https://cdn.jsdelivr.net/gh/owner/demo@v0.1.0/app/app.js"
+    And curl fetched "https://purge.jsdelivr.net/gh/owner/demo@0/app/app.js"
+    And curl fetched "https://purge.jsdelivr.net/gh/owner/demo@0.1/app/app.js"
+
+  Scenario: A jsDelivr failure is a warning, after the release is made
+    Given a cargo package released at version "0.1.0"
+    And release.json serves "app/app.js" through jsDelivr
+    And the repository is "owner/demo" with a curl that fails
+    When I run pubrel tag
+    Then it succeeds
+    And the tag "v0.1.0" exists and names the package publet
+    And stderr mentions "warning: jsDelivr"
+
+  Scenario: A jsDelivr file outside the repository is refused
+    Given a cargo package released at version "0.1.0"
+    And release.json serves "../secrets" through jsDelivr
+    When I run pubrel tag
+    Then it fails
+    And stderr mentions "`jsdelivr` needs `files`"

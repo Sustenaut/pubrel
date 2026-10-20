@@ -1,4 +1,4 @@
-//! A manifest (Cargo.toml or pyproject.toml), its version, and the next
+//! A manifest (Cargo.toml, pyproject.toml or package.json), its version, and the next
 //! version a set of changes makes from it. Any manifest text and any
 //! version must give a result or an error, never a panic: a panic is
 //! where an overflow would surface, since pubrel's release builds check
@@ -19,10 +19,11 @@ struct Input<'a> {
 }
 
 fuzz_target!(|input: Input| {
-    let kind = match input.kind % 3 {
+    let kind = match input.kind % 4 {
         0 => Kind::CargoWorkspace,
         1 => Kind::CargoPackage,
-        _ => Kind::Pyproject,
+        2 => Kind::Pyproject,
+        _ => Kind::Npm,
     };
     let release = Version::new(1, 2, 3);
     let read = manifest::read(input.text, kind);

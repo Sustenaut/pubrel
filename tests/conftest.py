@@ -50,6 +50,9 @@ MANIFESTS = {
     "pyproject": ("pyproject", "pyproject.toml",
                   '[project]\nname = "demo"\nversion = "{v}"\n',
                   ["src/", "pyproject.toml"], "src/demo/__init__.py"),
+    "npm": ("npm", "package.json",
+            '{{\n  "name": "demo",\n  "version": "{v}",\n  "type": "module"\n}}\n',
+            ["src/", "package.json"], "src/index.js"),
 }
 
 
@@ -196,7 +199,7 @@ class Package:
 
     def manifest_version(self, manifest: str | None = None) -> str:
         text = (self.root / (manifest or self.manifest)).read_text()
-        return re.search(r'^version = "([^"]+)"', text, re.M).group(1)
+        return re.search(r'^\s*"?version"?\s*[=:]\s*"([^"]+)"', text, re.M).group(1)
 
     def pinned(self, path: str) -> str:
         text = (self.root / "Cargo.toml").read_text()

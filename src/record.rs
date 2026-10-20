@@ -51,6 +51,10 @@ pub struct Config {
     pub security: crate::security::Declared,
     /// Whether the crate's public API is checked against its last release.
     pub semver_checks: bool,
+    /// Files served from the git tag through jsDelivr, relative to the
+    /// root: `tag` warms them at the new tag and purges the version ranges
+    /// that resolve to it. Empty for a package not served that way.
+    pub jsdelivr: Vec<String>,
 }
 
 impl Config {
@@ -169,6 +173,25 @@ impl Config {
                  cargo-package manifest"
             ));
         }
+        let jsdelivr = match json.get("jsdelivr") {
+            None => Vec::new(),
+            Some(j) => j
+                .get("files")
+                .and_then(Value::as_array)
+                .and_then(|files| {
+                    files
+                        .iter()
+                        .map(|f| f.as_str().filter(|f| plain_path(f)).map(str::to_owned))
+                        .collect::<Option<Vec<_>>>()
+                })
+                .filter(|files| !files.is_empty())
+                .ok_or_else(|| {
+                    format!(
+                        "{name}: `jsdelivr` needs `files`, a list of paths in the repository \
+                         such as \"dist/app.js\""
+                    )
+                })?,
+        };
         Ok(Self {
             root: root.to_path_buf(),
             name,
@@ -196,6 +219,7 @@ impl Config {
                 json.get("security").or_else(|| top.get("security")),
             )?,
             semver_checks,
+            jsdelivr,
         })
     }
 
@@ -747,10 +771,35 @@ pub fn section(r: &Release) -> String {
     out
 }
 
+/// A path inside the repository, as a URL path takes it: relative, with
+/// no `..`, empty or `.` segment, and nothing a URL would read differently.
+fn plain_path(path: &str) -> bool {
+    !path.is_empty()
+        && path
+            .split('/')
+            .all(|seg| !seg.is_empty() && seg != "." && seg != "..")
+        && path
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "-._~/@+".contains(c))
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+
+    // covers: record::plain_path
+    #[test]
+    fn a_jsdelivr_file_is_a_plain_path_in_the_repository() {
+        for ok in ["app/app.js", "dist/x.min.css", "a/b-c_d~e@1+2"] {
+            assert!(plain_path(ok), "{ok}");
+        }
+        for bad in [
+            "", "/abs", "a//b", "../up", "a/./b", "a b", "a?b", "a#b", "a/",
+        ] {
+            assert!(!plain_path(bad), "{bad}");
+        }
+    }
 
     // covers: record::changes
     #[test]

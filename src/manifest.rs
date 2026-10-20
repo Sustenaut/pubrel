@@ -2,6 +2,8 @@
 //!
 //! Edits go through `toml_edit`, so a manifest keeps its comments and
 //! layout: a release changes the version and nothing else about the file.
+//! A `package.json` is edited in place the same way: only the bytes of its
+//! version string change, so its indentation and key order stay npm's.
 
 use std::path::Path;
 use std::process::Command;
@@ -20,6 +22,9 @@ pub enum Kind {
     CargoPackage,
     /// `[project].version` in a `pyproject.toml`.
     Pyproject,
+    /// The top-level `version` in a `package.json`, and the same version
+    /// in a `package-lock.json` beside it.
+    Npm,
 }
 
 impl Kind {
@@ -28,14 +33,15 @@ impl Kind {
     /// # Errors
     ///
     /// Returns a message naming the known kinds if `name` is not
-    /// `cargo-workspace`, `cargo-package` or `pyproject`.
+    /// `cargo-workspace`, `cargo-package`, `pyproject` or `npm`.
     pub fn parse(name: &str) -> Result<Self, String> {
         match name {
             "cargo-workspace" => Ok(Self::CargoWorkspace),
             "cargo-package" => Ok(Self::CargoPackage),
             "pyproject" => Ok(Self::Pyproject),
+            "npm" => Ok(Self::Npm),
             other => Err(format!(
-                "unknown manifest kind `{other}` (cargo-workspace, cargo-package, pyproject)"
+                "unknown manifest kind `{other}` (cargo-workspace, cargo-package, pyproject, npm)"
             )),
         }
     }
@@ -45,6 +51,7 @@ impl Kind {
             Self::CargoWorkspace => ["workspace", "package"],
             Self::CargoPackage => ["package", ""],
             Self::Pyproject => ["project", ""],
+            Self::Npm => ["", ""],
         }
     }
 }
@@ -68,6 +75,15 @@ fn version_item(doc: &DocumentMut, kind: Kind) -> Option<&Item> {
 /// `kind` keeps it, or states one that is not plain `MAJOR.MINOR.PATCH`
 /// (see [`version::parse`]).
 pub fn read(text: &str, kind: Kind) -> Result<Version, String> {
+    if kind == Kind::Npm {
+        let doc: serde_json::Value =
+            serde_json::from_str(text).map_err(|e| format!("not JSON: {e}"))?;
+        let stated = doc
+            .get("version")
+            .and_then(serde_json::Value::as_str)
+            .ok_or("the manifest states no top-level `version`, where a package.json does")?;
+        return version::parse(stated);
+    }
     let doc: DocumentMut = text.parse().map_err(|e| format!("not TOML: {e}"))?;
     let stated = version_item(&doc, kind)
         .and_then(Item::as_str)
@@ -86,6 +102,10 @@ pub fn read(text: &str, kind: Kind) -> Result<Version, String> {
 /// Returns a message if [`read`] fails on the text.
 pub fn write(text: &str, kind: Kind, version: &Version, own: &[String]) -> Result<String, String> {
     let old = read(text, kind)?.to_string();
+    if kind == Kind::Npm {
+        return set_json_string(text, &["version"], &version.to_string())?
+            .ok_or_else(|| "the manifest states no top-level `version`".to_owned());
+    }
     let mut doc: DocumentMut = text.parse().map_err(|e| format!("not TOML: {e}"))?;
     let [outer, inner] = kind.table();
     let table = if inner.is_empty() {
@@ -158,16 +178,26 @@ pub fn pin(text: &str, dir: &str, version: &Version) -> Result<Option<String>, S
 /// Bring the lockfile in line with the new version, where there is one.
 /// For a Cargo manifest with a `Cargo.lock` at `root`, this runs
 /// `cargo update --offline`, for the workspace or for the package `name`.
-/// For anything else it does nothing.
+/// For an npm manifest with a `package-lock.json` beside it, this sets the
+/// lockfile's own two copies of the version, as `npm version` would,
+/// without running npm. For anything else it does nothing.
 ///
 /// # Errors
 ///
-/// Returns a message if `cargo` cannot be started or exits non-zero.
-pub fn refresh_lock(root: &Path, kind: Kind, name: &str) -> Result<(), String> {
+/// Returns a message if `cargo` cannot be started or exits non-zero, or
+/// if a `package-lock.json` is not JSON or states no version.
+pub fn refresh_lock(
+    root: &Path,
+    kind: Kind,
+    name: &str,
+    manifest: &Path,
+    version: &Version,
+) -> Result<(), String> {
     let args: Vec<&str> = match kind {
         Kind::CargoWorkspace => vec!["update", "--workspace", "--offline"],
         Kind::CargoPackage => vec!["update", "-p", name, "--offline"],
         Kind::Pyproject => return Ok(()),
+        Kind::Npm => return refresh_npm_lock(&root.join(manifest), version),
     };
     if !root.join("Cargo.lock").exists() {
         return Ok(());
@@ -181,6 +211,151 @@ pub fn refresh_lock(root: &Path, kind: Kind, name: &str) -> Result<(), String> {
         Ok(())
     } else {
         Err(format!("cargo {} failed", args.join(" ")))
+    }
+}
+
+fn refresh_npm_lock(manifest: &Path, version: &Version) -> Result<(), String> {
+    let path = manifest.with_file_name("package-lock.json");
+    let Ok(mut text) = std::fs::read_to_string(&path) else {
+        return Ok(());
+    };
+    let version = version.to_string();
+    // The lockfile's top-level version, and (lockfileVersion 2 and 3) the
+    // root package's entry under `packages`.
+    text = set_json_string(&text, &["version"], &version)?
+        .ok_or("package-lock.json states no top-level `version`")?;
+    if let Some(edited) = set_json_string(&text, &["packages", "", "version"], &version)? {
+        text = edited;
+    }
+    std::fs::write(&path, text).map_err(|e| format!("cannot write {}: {e}", path.display()))
+}
+
+/// `text`, a JSON document, with the string at `path` (object keys from
+/// the top) replaced by `value`, written as a JSON string; `None` if
+/// nothing is there or it is not a string. Only the bytes of that string
+/// change. Where a key is repeated, the last one counts, as for
+/// `serde_json`.
+///
+/// # Errors
+///
+/// Returns a message if `text` is not JSON.
+fn set_json_string(text: &str, path: &[&str], value: &str) -> Result<Option<String>, String> {
+    serde_json::from_str::<serde_json::Value>(text).map_err(|e| format!("not JSON: {e}"))?;
+    let mut walk = Scan {
+        text: text.as_bytes(),
+        at: 0,
+    };
+    let Some(span) = walk.find(path) else {
+        return Ok(None);
+    };
+    let quoted = serde_json::to_string(value).map_err(|e| e.to_string())?;
+    Ok(Some(format!(
+        "{}{quoted}{}",
+        &text[..span.start],
+        &text[span.end..]
+    )))
+}
+
+/// A walk over a JSON document already known to be valid.
+struct Scan<'a> {
+    text: &'a [u8],
+    at: usize,
+}
+
+impl Scan<'_> {
+    fn space(&mut self) {
+        while self.text.get(self.at).is_some_and(u8::is_ascii_whitespace) {
+            self.at += 1;
+        }
+    }
+
+    /// The span of the string starting here, quotes included.
+    fn string(&mut self) -> std::ops::Range<usize> {
+        let start = self.at;
+        self.at += 1;
+        while let Some(&b) = self.text.get(self.at) {
+            self.at += 1;
+            match b {
+                b'\\' => self.at += 1,
+                b'"' => break,
+                _ => {}
+            }
+        }
+        start..self.at
+    }
+
+    /// Skip the value starting here.
+    fn skip(&mut self) {
+        self.space();
+        match self.text.get(self.at) {
+            Some(b'"') => {
+                self.string();
+            }
+            Some(b'{' | b'[') => {
+                let mut depth = 0usize;
+                while let Some(&b) = self.text.get(self.at) {
+                    match b {
+                        b'"' => {
+                            self.string();
+                            continue;
+                        }
+                        b'{' | b'[' => depth += 1,
+                        b'}' | b']' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                self.at += 1;
+                                return;
+                            }
+                        }
+                        _ => {}
+                    }
+                    self.at += 1;
+                }
+            }
+            _ => {
+                while self
+                    .text
+                    .get(self.at)
+                    .is_some_and(|b| !matches!(b, b',' | b'}' | b']') && !b.is_ascii_whitespace())
+                {
+                    self.at += 1;
+                }
+            }
+        }
+    }
+
+    /// The span of the string at `path` within the value starting here.
+    fn find(&mut self, path: &[&str]) -> Option<std::ops::Range<usize>> {
+        self.space();
+        let Some((key, rest)) = path.split_first() else {
+            return (self.text.get(self.at) == Some(&b'"')).then(|| self.string());
+        };
+        if self.text.get(self.at) != Some(&b'{') {
+            return None;
+        }
+        self.at += 1;
+        let mut found = None;
+        loop {
+            self.space();
+            match self.text.get(self.at) {
+                Some(b'"') => {}
+                _ => return found,
+            }
+            let name = self.string();
+            let name: String = serde_json::from_slice(&self.text[name]).ok()?;
+            self.space();
+            self.at += 1; // the colon
+            if name == *key {
+                let start = self.at;
+                found = self.find(rest).or(found);
+                self.at = start;
+            }
+            self.skip();
+            self.space();
+            if self.text.get(self.at) == Some(&b',') {
+                self.at += 1;
+            }
+        }
     }
 }
 
@@ -272,6 +447,64 @@ core = { path = "crates/core", version = "0.0.1" }
     #[test]
     fn a_manifest_without_a_version_there_is_refused() {
         assert!(read("[package]\nname = \"x\"\n", Kind::CargoPackage).is_err());
-        assert!(Kind::parse("npm").is_err());
+        assert!(Kind::parse("maven").is_err());
+        assert!(read("{\"name\": \"x\"}", Kind::Npm).is_err());
+        assert!(read("{\"version\": 1}", Kind::Npm).is_err());
+        assert!(read("not json", Kind::Npm).is_err());
+    }
+
+    const PACKAGE: &str = r#"{
+  "name": "demo",
+  "version": "0.1.0",
+  "description": "keeps \"version\": \"0.1.0\" here",
+  "dependencies": {
+    "version": "^1.0.0"
+  },
+  "scripts": { "test": "node --test" }
+}
+"#;
+
+    // covers: manifest::write, manifest::read, manifest::Kind::parse
+    #[test]
+    fn a_package_json_changes_only_its_version() {
+        let v = &version::parse("0.2.0").unwrap();
+        assert_eq!(Kind::parse("npm").unwrap(), Kind::Npm);
+        assert_eq!(read(PACKAGE, Kind::Npm).unwrap().to_string(), "0.1.0");
+        let out = write(PACKAGE, Kind::Npm, v, &[]).unwrap();
+        assert_eq!(out, PACKAGE.replacen("\"0.1.0\",\n", "\"0.2.0\",\n", 1));
+        assert_eq!(read(&out, Kind::Npm).unwrap(), *v);
+    }
+
+    // covers: manifest::set_json_string
+    #[test]
+    fn the_string_at_a_path_is_replaced_and_nothing_else() {
+        let lock = r#"{"name":"demo","version":"0.1.0","lockfileVersion":3,
+"packages":{"":{"name":"demo","version":"0.1.0"},"node_modules/a":{"version":"0.1.0"}}}"#;
+        let out = set_json_string(lock, &["packages", "", "version"], "0.2.0")
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            out,
+            lock.replace(
+                r#""":{"name":"demo","version":"0.1.0"}"#,
+                r#""":{"name":"demo","version":"0.2.0"}"#
+            )
+        );
+        // The last of a repeated key counts, as serde_json reads it.
+        let twice = r#"{"version": "1.0.0", "a": [1, {"version": "x"}], "version": "2.0.0"}"#;
+        let out = set_json_string(twice, &["version"], "3.0.0")
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            out,
+            r#"{"version": "1.0.0", "a": [1, {"version": "x"}], "version": "3.0.0"}"#
+        );
+        assert!(set_json_string(twice, &["missing"], "1").unwrap().is_none());
+        assert!(
+            set_json_string(r#"{"version": 1}"#, &["version"], "1")
+                .unwrap()
+                .is_none()
+        );
+        assert!(set_json_string("{", &["version"], "1").is_err());
     }
 }

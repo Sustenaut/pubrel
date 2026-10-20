@@ -43,7 +43,7 @@ Merging it is the release: CI tags it.
 | `prepare [--no-pr]` | Cuts a release: publishes the package publet, commits on a `release/` branch, and opens a pull request. `--no-pr` stops after the commit. |
 | `withdraw PR\|BRANCH` | After a release's pull request is closed unmerged: keeps `pub` from publishing its objects again. See [Withdrawing a release](#withdrawing-a-release). |
 | `changelog` | Regenerates each package's changelog from its package publet. |
-| `tag` | For CI on main: for each package whose manifest version is published and not yet tagged, creates the tag and the GitHub release. |
+| `tag` | For CI on main: for each package whose manifest version is published and not yet tagged, creates the tag and the GitHub release, then refreshes jsDelivr for a package that lists `jsdelivr` files. |
 | `--version` | Prints `pubrel X.Y.Z`. |
 | `--help` | Prints the usage. |
 
@@ -167,8 +167,31 @@ with `{tag}` replaced by the release's git tag and `{version}` by its
 version.
 
 Manifest kinds: `cargo-workspace` (the workspace version and every internal
-path dependency pinned at it), `cargo-package`, and `pyproject`. `command`
-is optional, and a library has none.
+path dependency pinned at it), `cargo-package`, `pyproject`, and `npm` (the
+top-level `version` of a `package.json`, and the lockfile's own two copies
+of it when a `package-lock.json` sits beside it; only those bytes change,
+and npm is not run). `command` is optional, and a library has none.
+
+### Served through jsDelivr
+
+[jsDelivr](https://www.jsdelivr.com/) serves every git tag of a public
+GitHub repository at `cdn.jsdelivr.net/gh/OWNER/REPO@TAG/PATH` as soon as
+the tag exists, so a release needs nothing published there. A package
+whose files are loaded that way may list them:
+
+```json
+"jsdelivr": { "files": ["app/app.js", "app/style.css"] }
+```
+
+After tagging, `pubrel tag` then asks jsDelivr for each file at the new
+tag, so the first visitor does not wait while jsDelivr fetches it from
+GitHub, and purges the URLs whose version range now resolves to the new
+release (`@1`, `@1.2`, and no version). Ranges resolve only against `vX.Y.Z`
+tags, so a package with another tag prefix is warmed and not purged. The
+repository is `GITHUB_REPOSITORY` in Actions, or what `gh repo view` says.
+Either step failing is a warning: the release is already made, and its
+files are served all the same. Each path must be a plain path inside the
+repository.
 
 ## Security checks
 
@@ -254,9 +277,9 @@ by whoever cut it.
   present.
 - **What was checked is part of the release.** Declared security checks
   run before a release is cut, and their record is signed with it.
-- **One tool for Rust and Python.** The same commands and workflow release
-  a Cargo package, a Cargo workspace with crates versioned on their own,
-  and a `pyproject.toml` package.
+- **One tool for Rust, Python and npm.** The same commands and workflow
+  release a Cargo package, a Cargo workspace with crates versioned on
+  their own, a `pyproject.toml` package, and a `package.json` package.
 
 ## Related tools
 

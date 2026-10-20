@@ -12,6 +12,7 @@
 //! judgement at release time (see [`version`]).
 
 mod api;
+mod jsdelivr;
 mod manifest;
 mod published;
 mod record;
@@ -198,6 +199,8 @@ fn init() -> Result<(), String> {
         .to_owned();
     let (kind, manifest) = if root.join("pyproject.toml").exists() {
         ("pyproject", "pyproject.toml")
+    } else if root.join("package.json").exists() {
+        ("npm", "package.json")
     } else {
         ("cargo-package", "Cargo.toml")
     };
@@ -598,7 +601,7 @@ fn prepare(open_pr: bool, package: Option<&str>) -> Result<(), String> {
     .map_err(|e| e.to_string())?;
     record::write_changes(&cfg.root.join(cfg.unreleased_rel()), &[], None)?;
     set_versions(&cfg, &all, &release)?;
-    manifest::refresh_lock(&cfg.root, cfg.kind, &cfg.name)?;
+    manifest::refresh_lock(&cfg.root, cfg.kind, &cfg.name, &cfg.manifest, &release)?;
     record::run_pub(&cfg.corpus_dir(), &["build"])?;
     print!(
         "{}",
@@ -810,5 +813,6 @@ fn tag_one(cfg: &Config) -> Result<(), String> {
         &cfg.root,
     )?;
     println!("tagged and released {tag}");
+    jsdelivr::refresh(&cfg.root, &tag, &version, &cfg.jsdelivr);
     Ok(())
 }

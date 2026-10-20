@@ -205,6 +205,29 @@ def manifest_states(pkg, version: str):
     assert pkg.manifest_version() == version
 
 
+@given(parsers.parse('a package-lock.json at version "{version}"'))
+def package_lock(pkg, version: str):
+    lock = {"name": "demo", "version": version, "lockfileVersion": 3, "requires": True,
+            "packages": {"": {"name": "demo", "version": version},
+                         "node_modules/dep": {"version": version}}}
+    (pkg.root / "package-lock.json").write_text(json.dumps(lock, indent=2) + "\n")
+    pkg.commit("add package-lock.json")
+    pkg.git("push", "-q", "origin", "main")
+
+
+@then(parsers.parse('package-lock.json states "{version}" for itself and its root package'))
+def package_lock_states(pkg, version: str):
+    lock = json.loads((pkg.root / "package-lock.json").read_text())
+    assert lock["version"] == version, lock
+    assert lock["packages"][""]["version"] == version, lock
+
+
+@then("package-lock.json keeps its dependencies' versions")
+def package_lock_keeps(pkg):
+    lock = json.loads((pkg.root / "package-lock.json").read_text())
+    assert lock["packages"]["node_modules/dep"]["version"] == "0.1.0", lock
+
+
 @then(parsers.parse('the manifest pins its internal dependency at "{version}"'))
 def internal_pin(pkg, version: str):
     text = (pkg.root / pkg.manifest).read_text()
@@ -748,3 +771,39 @@ def install_command(pkg, command: str):
 def notes_say(pkg, text: str):
     log = pkg.gh_log.read_text()
     assert "pr\x1fcreate" in log and text in log, log
+
+
+@given(parsers.parse('release.json serves "{path}" through jsDelivr'))
+def serves_through_jsdelivr(pkg, path: str):
+    config_path = pkg.root / "release.json"
+    config = json.loads(config_path.read_text())
+    config["jsdelivr"] = {"files": [path]}
+    config_path.write_text(json.dumps(config, indent=2))
+    pkg.commit("serve through jsDelivr")
+    pkg.git("push", "-q", "origin", "main")
+
+
+def fake_curl(pkg, code: int):
+    curl = pkg.fake / "curl"
+    log = pkg.tmp / "curl.log"
+    curl.write_text(f'#!/bin/sh\nfor a; do last="$a"; done\necho "$last" >> "{log}"\n'
+                    f'[ {code} -eq 0 ] || echo "curl: (22) failed" >&2\nexit {code}\n')
+    curl.chmod(0o755)
+
+
+@given(parsers.parse('the repository is "{repo}" with a recording curl'))
+def recording_curl(pkg, repo: str):
+    pkg.env["GITHUB_REPOSITORY"] = repo
+    fake_curl(pkg, 0)
+
+
+@given(parsers.parse('the repository is "{repo}" with a curl that fails'))
+def failing_curl(pkg, repo: str):
+    pkg.env["GITHUB_REPOSITORY"] = repo
+    fake_curl(pkg, 22)
+
+
+@then(parsers.parse('curl fetched "{url}"'))
+def curl_fetched(pkg, url: str):
+    fetched = (pkg.tmp / "curl.log").read_text().splitlines()
+    assert url in fetched, fetched
