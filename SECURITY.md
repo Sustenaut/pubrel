@@ -54,18 +54,19 @@ commands.
 - the Gherkin suite, which runs the built binary against throwaway
   repositories;
 - on a pull request, `pubrel check`, through pubrel's own release
-  workflow built from the checkout.
+  workflow built from the checkout;
 - the tests on a 32-bit (i686) and a big-endian (s390x) target, under
   emulation, and a build on the minimum Rust version;
-- fuzzing of what `check` reads from a pull request: `release.json`,
-  `unreleased.json`, the corpus lock and the manifests, with the version
-  arithmetic (`fuzz/`). Every input that once found a bug is replayed
-  first (`fuzz/regressions/`).
-
+- fuzzing of part of what `check` reads from a pull request:
+  `release.json`, `unreleased.json`, the corpus lock and the manifests,
+  with the version arithmetic (`fuzz/`). Every input that once found a bug
+  is replayed first (`fuzz/regressions/`). The package publet's objects,
+  which `check` reads and verifies on a release pull request, are covered
+  by the Gherkin suite and unit tests, and not fuzzed;
 - `cargo deny check`: fails on any crate in the dependency tree with a
   RustSec advisory (vulnerable, unmaintained, unsound, or yanked), on a
   licence outside the permissive list, and on any source but crates.io
-  (`deny.toml`).
+  (`deny.toml`);
 - `cargo vet`: every dependency is covered by an audit imported from
   Mozilla, Google, the Bytecode Alliance, Zcash, ISRG or Embark Studios, by
   a publisher those organisations trust, or by an exemption that records
@@ -76,8 +77,10 @@ commands.
 pubrel builds, for any target, whether it runs code at build time, and how
 it is vouched for. It is generated, and CI fails if it is stale.
 
-**In every release:** `pubrel prepare` runs `cargo deny`, `cargo vet` and
-the report's check before cutting a release, and records them as a signed
+**In every release:** `pubrel prepare` runs `cargo deny`, `cargo vet`, the
+report's check, and a check that a current quality audit of the release
+(`audit/pubrel-X.Y.Z.md`, by `pubkit audit --check`) counts nothing that
+blocks it, before cutting a release, and records them as a signed
 `security` claim in pubrel's package publet: each command, its tool and
 version, and its summary, beside the RustSec database revision and the
 audit sets imported. The changelog and the GitHub release list it.
