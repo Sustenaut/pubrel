@@ -17,7 +17,7 @@ jobs:
   # promised Rust; fuzzing of what `check` reads from a pull request, after
   # replaying every input that once found a bug; and cargo deny and vet.
   ci:
-    uses: schryer/pubkit/.github/workflows/rust-ci.yml@v0.11.0
+    uses: schryer/pubkit/.github/workflows/rust-ci.yml@v0.11.1
     with:
       pub-version: v0.2.1
 
