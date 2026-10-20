@@ -44,7 +44,7 @@ Merging it is the release: CI tags it.
 | `withdraw PR\|BRANCH` | After a release's pull request is closed unmerged: keeps `pub` from publishing its objects again. See [Withdrawing a release](#withdrawing-a-release). |
 | `changelog` | Regenerates each package's changelog from its package publet. |
 | `tag` | For CI on main: for each package whose manifest version is published and not yet tagged, creates the tag and the GitHub release, then refreshes jsDelivr for a package that lists `jsdelivr` files. |
-| `--version` | Prints `pubrel X.Y.Z`. |
+| `--version` (or `version`) | Prints `pubrel X.Y.Z`. |
 | `--help` | Prints the usage. |
 
 When `release.json` lists several packages, `--package NAME` (or
@@ -378,17 +378,20 @@ make check         # fmt, clippy, unit tests, docs, and the Gherkin suite
 
 Testing is split as in publet. Rust unit tests cover invariants with no
 user-visible surface, such as the bump arithmetic and manifest editing.
-A Gherkin suite (`tests/features`) covers the behaviour of every command
-but `init` and `--version`. It drives the built binary against throwaway
+A Gherkin suite (`tests/features`) covers the behaviour of every command.
+It drives the built binary against throwaway
 repositories with a real `pub` and a fake `gh`. Binaries
 are resolved from `PUBREL_BIN_DIR` and `PUB_BIN_DIR`. The shared testing
 setup is [pubkit](https://github.com/schryer/pubkit)'s: the plugin those
 fixtures and the common steps come from, `pubkit.mk`, the hash-locked pins,
 and the CI workflow. `make sync-check` fails if the managed copies drift.
 
-What `pubrel check` reads from a pull request is fuzzed (`fuzz/`):
+Part of what `pubrel check` reads from a pull request is fuzzed (`fuzz/`):
 `release.json`, `unreleased.json`, the corpus lock, and the manifests with
-the version arithmetic. `make fuzz-smoke` replays every input that once
+the version arithmetic. On a release pull request, `check` also reads the
+package publet's objects from `corpus/objects/` and verifies their
+signatures. That code is covered by the Gherkin suite and unit tests, and
+is not fuzzed. `make fuzz-smoke` replays every input that once
 found a bug (`fuzz/regressions/`), then fuzzes each target for a minute.
 It needs nightly Rust and cargo-fuzz.
 pubrel's own CI calls its own release workflow from the checkout, so it is
