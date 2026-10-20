@@ -19,12 +19,22 @@ Feature: A release is cut from main as a pull request
       | cargo           |
       | cargo-workspace |
       | pyproject       |
+      | npm             |
 
   Scenario: A workspace's internal dependencies move with it
     Given a cargo-workspace package released at version "0.1.0"
     And the unreleased changes "fixed" pushed to main
     When I run pubrel prepare
     Then the manifest pins its internal dependency at "0.1.1"
+
+  Scenario: An npm package's lockfile moves with it
+    Given a npm package released at version "0.1.0"
+    And a package-lock.json at version "0.1.0"
+    And the unreleased changes "fixed" pushed to main
+    When I run pubrel prepare
+    Then it succeeds
+    And package-lock.json states "0.1.1" for itself and its root package
+    And package-lock.json keeps its dependencies' versions
 
   Scenario: A dirty tree is refused
     Given a cargo package released at version "0.1.0"
