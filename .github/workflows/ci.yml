@@ -15,11 +15,14 @@ jobs:
   # the tests on Linux, macOS, Windows, i686 and s390x; the Gherkin suite
   # against a released pub, and the supply-chain report; the oldest
   # promised Rust; fuzzing of what `check` reads from a pull request, after
-  # replaying every input that once found a bug; and cargo deny and vet.
+  # replaying every input that once found a bug; cargo deny and vet; and
+  # SonarQube Cloud's analysis, which runs only with the SONAR_TOKEN secret
+  # that `secrets: inherit` passes.
   ci:
-    uses: schryer/pubkit/.github/workflows/rust-ci.yml@v0.11.1
+    uses: schryer/pubkit/.github/workflows/rust-ci.yml@v0.11.2
     with:
       pub-version: v0.2.1
+    secrets: inherit
 
   # pubrel is held to its own rules, by its own workflow, built from this
   # checkout -- so a change to the workflow is tested before a release
