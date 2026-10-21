@@ -19,7 +19,7 @@ jobs:
   # SonarQube Cloud's analysis, which runs only with the SONAR_TOKEN secret
   # that `secrets: inherit` passes.
   ci:
-    uses: schryer/pubkit/.github/workflows/rust-ci.yml@v0.11.2
+    uses: schryer/pubkit/.github/workflows/rust-ci.yml@v0.12.1
     with:
       pub-version: v0.2.1
     secrets: inherit
