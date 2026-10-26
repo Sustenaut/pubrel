@@ -7,5 +7,12 @@
       "reason": "no test vectors yet: the version arithmetic and the files pubrel reads need cases from an independent source, such as Cargo's documented SemVer rules, generated outside pubrel",
       "until": "2027-01-12"
     }
-  ]
+  ],
+  "protect": {
+    "checks": [
+      "ci / passed",
+      "release / release",
+      "SonarCloud Code Analysis"
+    ]
+  }
 }
