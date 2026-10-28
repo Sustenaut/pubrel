@@ -67,3 +67,70 @@ Feature: One repository releases several packages
     Then it succeeds
     And "CHANGELOG.md" names the package publet "pkg.demo"
     And "crates/algo/CHANGELOG.md" names the package publet "pkg.demo-algo"
+
+  Scenario: prepare --all cuts one release of every package with changes, dependencies first
+    Given "demo" builds a crate that depends on "demo-algo", with a Cargo.lock
+    And "demo" records "fixed" "a crash" on main
+    And "demo-algo" records "added" "a faster sort" on main
+    When I run pubrel "prepare --all"
+    Then it succeeds
+    And it prints "releasing demo-algo 0.1.0 -> 0.1.1"
+    And it prints "releasing demo 0.1.0 -> 0.1.1"
+    And the current branch is "release/demo-algo-v0.1.1+v0.1.1"
+    And a pull request "Release demo-algo-v0.1.1, v0.1.1" was requested from "release/demo-algo-v0.1.1+v0.1.1"
+    And the pull request's notes say "# demo-algo 0.1.1"
+    And the pull request's notes say "# demo 0.1.1"
+    And the workspace states "0.1.1"
+    And the workspace pins "crates/algo" at "0.1.1"
+    And Cargo.lock records "demo-algo" at "0.1.1"
+    And Cargo.lock records "demo-core" at "0.1.1"
+    And the unreleased list of "pkg.demo" is empty
+    And the unreleased list of "pkg.demo-algo" is empty
+
+  Scenario: The release of several packages passes check, and one merge tags them all
+    Given "demo" builds a crate that depends on "demo-algo", with a Cargo.lock
+    And "demo" records "fixed" "a crash" on main
+    And "demo-algo" records "added" "a faster sort" on main
+    And pubrel "prepare --all --no-pr" has run
+    When I run pubrel check against main
+    Then it succeeds
+    And it prints "demo-algo: release 0.1.1"
+    And it prints "demo: release 0.1.1"
+    When the release branch is merged into main
+    And I run pubrel tag
+    Then it succeeds
+    And the tag "demo-algo-v0.1.1" exists
+    And the tag "v0.1.1" exists
+    And a GitHub release "demo-algo-v0.1.1" was requested
+    And a GitHub release "v0.1.1" was requested
+
+  Scenario: prepare --all with one package to release cuts that release alone
+    Given "demo-algo" records "added" "a faster sort" on main
+    When I run pubrel "prepare --all --no-pr"
+    Then it succeeds
+    And it prints "demo: nothing has changed"
+    And the current branch is "release/demo-algo-v0.1.1"
+
+  Scenario: prepare --all with nothing to release says so for each package
+    When I run pubrel "prepare --all"
+    Then it fails
+    And stderr mentions "no package has changes to release"
+    And stderr mentions "demo-algo: nothing has changed"
+
+  Scenario: prepare --all releases every package, so it names none
+    Given "demo-algo" records "added" "a faster sort" on main
+    When I run pubrel "prepare --all --package demo-algo"
+    Then it fails
+    And stderr mentions "it takes no --package"
+
+  Scenario: One package's failing check releases nothing
+    Given "demo" builds a crate that depends on "demo-algo", with a Cargo.lock
+    And "demo" records "fixed" "a crash" on main
+    And "demo-algo" records "added" "a faster sort" on main
+    And a quality audit check that finds no report for "demo"
+    When I run pubrel "prepare --all --no-pr"
+    Then it fails
+    And stderr mentions "security check `quality audit current` failed, so nothing is released"
+    And stderr mentions "next: `pubkit audit prepare --package demo`"
+    And the current branch is "main"
+    And the unreleased list of "pkg.demo-algo" holds "added" "a faster sort"

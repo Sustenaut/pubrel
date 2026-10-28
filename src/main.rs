@@ -14,6 +14,7 @@
 mod api;
 mod jsdelivr;
 mod manifest;
+mod order;
 mod published;
 mod record;
 mod security;
@@ -41,6 +42,8 @@ usage: pubrel <command> [--package NAME]
                           is the bump its changes require, and published
   prepare [--no-pr]       cut a release: publish the package publet, commit,
                           and open a release PR
+  prepare --all [--no-pr] cut one release PR for every package with
+                          unreleased changes, in dependency order
   withdraw PR|BRANCH      after closing a release's pull request unmerged:
                           keep pub from publishing its objects again
   changelog               regenerate each package's changelog from its publet
@@ -49,9 +52,10 @@ usage: pubrel <command> [--package NAME]
   --help, -h, help        this text
 
 A repository whose release.json lists several `packages` names the one
-add, summary and prepare act on with --package NAME (or --package=NAME).
-next reports every package unless one is named; check, changelog and tag
-act on every package.";
+add, summary and prepare act on with --package NAME (or --package=NAME),
+or releases every package that has changes with prepare --all. next
+reports every package unless one is named; check, changelog and tag act
+on every package.";
 
 fn main() -> ExitCode {
     let mut args: Vec<String> = std::env::args().skip(1).collect();
@@ -74,7 +78,11 @@ fn main() -> ExitCode {
             || Err("usage: pubrel check BASE".to_owned()),
             |base| check(base),
         ),
-        Some("prepare") => prepare(!args.iter().any(|a| a == "--no-pr"), package),
+        Some("prepare") => prepare(
+            !args.iter().any(|a| a == "--no-pr"),
+            package,
+            args.iter().any(|a| a == "--all"),
+        ),
         Some("withdraw") => args.get(1).map_or_else(
             || Err("usage: pubrel withdraw PR|BRANCH".to_owned()),
             |which| {
@@ -533,95 +541,206 @@ fn today() -> Result<String, String> {
     Ok(out.trim().to_owned())
 }
 
-fn prepare(open_pr: bool, package: Option<&str>) -> Result<(), String> {
+/// A package `prepare` is releasing: its unreleased changes, the version
+/// it was last released at, and the version they make.
+struct Cut {
+    cfg: Config,
+    rows: Vec<Change>,
+    previous: Option<Version>,
+    release: Version,
+}
+
+/// The packages `prepare` releases: the one named (or the only one), or
+/// with `every`, each package that has changes to release, in the order
+/// that releases each after the packages it depends on.
+fn to_release(all: &[Config], package: Option<&str>, every: bool) -> Result<Vec<Cut>, String> {
+    let chosen = if every {
+        if package.is_some() {
+            return Err(
+                "prepare --all releases every package with changes; it takes no --package"
+                    .to_owned(),
+            );
+        }
+        packages()?
+    } else {
+        vec![config(package)?]
+    };
+    let mut cuts = Vec::new();
+    let mut idle = Vec::new();
+    for cfg in chosen {
+        let rows = unreleased(&cfg)?;
+        let previous = record::published_version(&cfg, lock_text(&cfg).as_deref())?;
+        match version::next(
+            previous.clone(),
+            cfg.manifest_version()?,
+            &categories(&rows),
+        ) {
+            Ok(release) => cuts.push(Cut {
+                cfg,
+                rows,
+                previous,
+                release,
+            }),
+            Err(why) if every => idle.push(format!("{}: {why}", cfg.name)),
+            Err(why) => return Err(why),
+        }
+    }
+    if cuts.is_empty() {
+        return Err(format!(
+            "no package has changes to release:\n  {}",
+            idle.join("\n  ")
+        ));
+    }
+    for line in &idle {
+        println!("{line}");
+    }
+    if cuts.len() < 2 {
+        return Ok(cuts);
+    }
+    let root = cuts.first().map(|c| c.cfg.root.clone()).unwrap_or_default();
+    let members = if all
+        .iter()
+        .any(|c| c.kind == Kind::CargoWorkspace || c.kind == Kind::CargoPackage)
+    {
+        order::members(&run(
+            "cargo",
+            &[
+                "metadata",
+                "--no-deps",
+                "--format-version",
+                "1",
+                "--offline",
+            ],
+            &root,
+        )?)?
+    } else {
+        Vec::new()
+    };
+    let names: Vec<String> = order::by_dependency(
+        &cuts.iter().map(|c| &c.cfg).collect::<Vec<_>>(),
+        all,
+        &members,
+    )?
+    .into_iter()
+    .map(|c| c.name.clone())
+    .collect();
+    let mut ordered = Vec::with_capacity(cuts.len());
+    for name in names {
+        if let Some(i) = cuts.iter().position(|c| c.cfg.name == name) {
+            ordered.push(cuts.swap_remove(i));
+        }
+    }
+    Ok(ordered)
+}
+
+fn prepare(open_pr: bool, package: Option<&str>, every: bool) -> Result<(), String> {
     let all = packages()?;
-    let cfg = config(package)?;
+    let cuts = to_release(&all, package, every)?;
+    let root = cuts
+        .first()
+        .map(|c| c.cfg.root.clone())
+        .ok_or("no package to release")?;
     record::require_pub()?;
-    if !run("git", &["status", "--porcelain"], &cfg.root)?
+    if !run("git", &["status", "--porcelain"], &root)?
         .trim()
         .is_empty()
     {
         return Err("the tree is not clean; a release is cut from a clean main".to_owned());
     }
-    run("git", &["fetch", "origin", "main"], &cfg.root)?;
-    let head = run("git", &["rev-parse", "HEAD"], &cfg.root)?
-        .trim()
-        .to_owned();
-    let main = run("git", &["rev-parse", "origin/main"], &cfg.root)?
+    run("git", &["fetch", "origin", "main"], &root)?;
+    let head = run("git", &["rev-parse", "HEAD"], &root)?.trim().to_owned();
+    let main = run("git", &["rev-parse", "origin/main"], &root)?
         .trim()
         .to_owned();
     if head != main {
         return Err("HEAD is not origin/main; a release is cut from the current main".to_owned());
     }
-    let rows = unreleased(&cfg)?;
-    let previous = record::published_version(&cfg, lock_text(&cfg).as_deref())?;
-    let release = version::next(
-        previous.clone(),
-        cfg.manifest_version()?,
-        &categories(&rows),
-    )?;
     // The checks run on the tree being released, before anything changes:
-    // a release is cut only when they pass. A non-release pull request has
-    // already checked the API, but main may have moved since.
-    if let Some(line) = check_api(&cfg, &categories(&rows))? {
-        println!("{line}");
+    // a release is cut only when every package's pass. A non-release pull
+    // request has already checked the API, but main may have moved since.
+    let mut security = Vec::with_capacity(cuts.len());
+    for cut in &cuts {
+        if let Some(line) = check_api(&cut.cfg, &categories(&cut.rows))? {
+            println!("{line}");
+        }
+        security.push(security::run(
+            &cut.cfg.security,
+            &root,
+            &cut.cfg.name,
+            &cut.release.to_string(),
+        )?);
     }
-    let security = security::run(&cfg.security, &cfg.root, &cfg.name, &release.to_string())?;
     let date = today()?;
-    let tag = cfg.git_tag(&release);
-    let branch = format!("release/{tag}");
-    println!(
-        "releasing {} {} -> {release} from {}",
-        cfg.name,
-        previous.map_or_else(|| "(first release)".to_owned(), |p| p.to_string()),
-        head.chars().take(12).collect::<String>()
-    );
-    run("git", &["checkout", "-b", &branch], &cfg.root)?;
+    let tags: Vec<String> = cuts.iter().map(|c| c.cfg.git_tag(&c.release)).collect();
+    let branch = format!("release/{}", tags.join("+"));
+    for cut in &cuts {
+        println!(
+            "releasing {} {} -> {} from {}",
+            cut.cfg.name,
+            cut.previous
+                .as_ref()
+                .map_or_else(|| "(first release)".to_owned(), ToString::to_string),
+            cut.release,
+            head.chars().take(12).collect::<String>()
+        );
+    }
+    run("git", &["checkout", "-b", &branch], &root)?;
+    let corpora: Vec<String> = {
+        let mut dirs: Vec<String> = cuts
+            .iter()
+            .map(|c| c.cfg.corpus.display().to_string())
+            .collect();
+        dirs.dedup();
+        dirs
+    };
     println!(
         "on {branch}; if a step below fails: git checkout -- . && git clean -fd {} && \
          git checkout main && git branch -D {branch}",
-        cfg.corpus.display()
+        corpora.join(" ")
     );
 
-    let brief = unreleased_summary(&cfg);
-    let source = record::package_source(
-        &cfg,
-        &release,
-        &date,
-        &head,
-        &rows,
-        brief.as_deref(),
-        &security,
-    );
-    std::fs::create_dir_all(cfg.package_dir()).map_err(|e| e.to_string())?;
-    std::fs::write(
-        cfg.package_dir().join("publet.json"),
-        serde_json::to_string_pretty(&source).map_err(|e| e.to_string())? + "\n",
-    )
-    .map_err(|e| e.to_string())?;
-    record::write_changes(&cfg.root.join(cfg.unreleased_rel()), &[], None)?;
-    set_versions(&cfg, &all, &release)?;
-    manifest::refresh_lock(&cfg.root, cfg.kind, &cfg.name, &cfg.manifest, &release)?;
-    record::run_pub(&cfg.corpus_dir(), &["build"])?;
-    print!(
-        "{}",
-        record::run_pub(&cfg.corpus_dir(), &["publish", &cfg.package])?
-    );
-    exported_cleanly(&cfg, &head)?;
-    write_changelog(&cfg)?;
+    for (cut, security) in cuts.iter().zip(&security) {
+        cut_one(cut, &all, &date, &head, security)?;
+    }
 
-    run("git", &["add", "-A"], &cfg.root)?;
+    run("git", &["add", "-A"], &root)?;
+    let what: Vec<String> = cuts
+        .iter()
+        .map(|c| format!("{} with {} {}", c.cfg.package, c.cfg.name, c.release))
+        .collect();
     let message = format!(
-        "Release {tag}\n\nPublishes {} with {} {release}.",
-        cfg.package, cfg.name
+        "Release {}\n\nPublishes {}.",
+        tags.join(", "),
+        what.join("; ")
     );
-    run("git", &["commit", "-m", &message], &cfg.root)?;
+    run("git", &["commit", "-m", &message], &root)?;
     if !open_pr {
         println!("committed on {branch}; push it and open a PR to release");
         return Ok(());
     }
-    run("git", &["push", "-u", "origin", &branch], &cfg.root)?;
-    let notes = notes(&cfg, &release)?;
+    run("git", &["push", "-u", "origin", &branch], &root)?;
+    open_release_pr(&cuts, &tags, &root)
+}
+
+/// Open the pull request whose merge is the release: one package's notes,
+/// or each package's under its name.
+fn open_release_pr(cuts: &[Cut], tags: &[String], root: &Path) -> Result<(), String> {
+    let body = match cuts {
+        [cut] => notes(&cut.cfg, &cut.release)?,
+        several => {
+            let mut text = String::new();
+            for cut in several {
+                let _ = write!(
+                    text,
+                    "# {} {}\n\n{}\n",
+                    cut.cfg.name,
+                    cut.release,
+                    notes(&cut.cfg, &cut.release)?
+                );
+            }
+            text
+        }
+    };
     let pr = run(
         "gh",
         &[
@@ -630,14 +749,52 @@ fn prepare(open_pr: bool, package: Option<&str>) -> Result<(), String> {
             "--base",
             "main",
             "--title",
-            &format!("Release {tag}"),
+            &format!("Release {}", tags.join(", ")),
             "--body",
-            &notes,
+            &body,
         ],
-        &cfg.root,
+        root,
     )?;
     print!("{pr}");
     Ok(())
+}
+
+/// Publish one package's release on the release branch: its package
+/// publet's new version, its manifest and lockfile, and its changelog.
+fn cut_one(
+    cut: &Cut,
+    all: &[Config],
+    date: &str,
+    head: &str,
+    security: &[security::Row],
+) -> Result<(), String> {
+    let cfg = &cut.cfg;
+    let brief = unreleased_summary(cfg);
+    let source = record::package_source(
+        cfg,
+        &cut.release,
+        date,
+        head,
+        &cut.rows,
+        brief.as_deref(),
+        security,
+    );
+    std::fs::create_dir_all(cfg.package_dir()).map_err(|e| e.to_string())?;
+    std::fs::write(
+        cfg.package_dir().join("publet.json"),
+        serde_json::to_string_pretty(&source).map_err(|e| e.to_string())? + "\n",
+    )
+    .map_err(|e| e.to_string())?;
+    record::write_changes(&cfg.root.join(cfg.unreleased_rel()), &[], None)?;
+    set_versions(cfg, all, &cut.release)?;
+    manifest::refresh_lock(&cfg.root, cfg.kind, &cfg.name, &cfg.manifest, &cut.release)?;
+    record::run_pub(&cfg.corpus_dir(), &["build"])?;
+    print!(
+        "{}",
+        record::run_pub(&cfg.corpus_dir(), &["publish", &cfg.package])?
+    );
+    exported_cleanly(cfg, head)?;
+    write_changelog(cfg)
 }
 
 /// After `pub publish`: every claim this release records is in `objects/`,
@@ -757,11 +914,29 @@ fn write_changelog(cfg: &Config) -> Result<(), String> {
     Ok(())
 }
 
+/// Tag every package whose release main now holds. One release pull
+/// request may release several packages, so one failing does not stop the
+/// others: each is tried, and every failure is reported.
 fn tag() -> Result<(), String> {
-    for cfg in packages()? {
-        tag_one(&cfg)?;
+    let all = packages()?;
+    let several = all.len() > 1;
+    let failed: Vec<String> = all
+        .iter()
+        .filter_map(|cfg| {
+            tag_one(cfg).err().map(|e| {
+                if several {
+                    format!("{}: {e}", cfg.name)
+                } else {
+                    e
+                }
+            })
+        })
+        .collect();
+    if failed.is_empty() {
+        Ok(())
+    } else {
+        Err(failed.join("\n"))
     }
-    Ok(())
 }
 
 /// Tag and release `cfg`'s manifest version, if it is published and untagged.

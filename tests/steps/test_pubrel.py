@@ -807,3 +807,73 @@ def failing_curl(pkg, repo: str):
 def curl_fetched(pkg, url: str):
     fetched = (pkg.tmp / "curl.log").read_text().splitlines()
     assert url in fetched, fetched
+
+
+# --- releasing several packages at once ---------------------------------------
+
+
+@given(parsers.parse('"{name}" builds a crate that depends on "{dependency}", with a Cargo.lock'))
+def workspace_crate_depends(pkg, name: str, dependency: str):
+    # The workspace's own crate, crates/core, needs the crate released on
+    # its own; `cargo update` keeps the lockfile beside them.
+    assert name == "demo" and dependency == "demo-algo"
+    manifest = pkg.root / "Cargo.toml"
+    manifest.write_text(manifest.read_text().replace(
+        'path = "crates/algo", version = "0.1.0" }',
+        'path = "crates/algo", version = "0.1.0", package = "demo-algo" }'))
+    (pkg.root / "crates" / "core" / "Cargo.toml").write_text(
+        '[package]\nname = "demo-core"\nversion.workspace = true\nedition.workspace = true\n\n'
+        '[dependencies]\nalgo.workspace = true\n')
+    (pkg.root / ".gitignore").write_text("/corpus/.publet/\n/target/\n")
+    pkg.ok("cargo", "generate-lockfile", "--offline")
+    pkg.commit("the workspace's crate depends on demo-algo")
+    pkg.git("push", "-q", "origin", "main")
+
+
+@given(parsers.parse('"{name}" records "{category}" "{change}" on main'))
+def multi_record_pushed(pkg, name: str, category: str, change: str):
+    pkg.add(category, change, package=name)
+    pkg.commit(f"record a change to {name}")
+    pkg.git("push", "-q", "origin", "main")
+
+
+@given(parsers.parse('a quality audit check that finds no report for "{name}"'))
+def audit_finds_none(pkg, name: str):
+    # pubkit's message when the report is missing, from a `pubkit` that
+    # fails only for that package.
+    fake = pkg.fake / "pubkit"
+    fake.write_text(
+        '#!/bin/sh\nif [ "$PUBREL_PACKAGE" = "' + name + '" ]; then\n'
+        '  echo "pubkit: no audit/$PUBREL_PACKAGE-$PUBREL_VERSION.md: run the '
+        'rust-crate-quality agent" >&2; exit 1\nfi\necho "audited"\n')
+    fake.chmod(0o755)
+    declare(pkg, "checks", {"name": "quality audit current", "run": "pubkit audit --check"})
+
+
+@when("the release branch is merged into main")
+def merge_release(pkg):
+    branch = pkg.git("rev-parse", "--abbrev-ref", "HEAD")
+    pkg.git("checkout", "-q", "main")
+    pkg.git("merge", "-q", "--ff-only", branch)
+    pkg.git("push", "-q", "origin", "main")
+
+
+@then(parsers.parse('the current branch is "{branch}"'))
+def current_branch(pkg, branch: str):
+    assert pkg.git("rev-parse", "--abbrev-ref", "HEAD") == branch
+
+
+@then(parsers.parse('Cargo.lock records "{crate}" at "{version}"'))
+def lock_records(pkg, crate: str, version: str):
+    text = (pkg.root / "Cargo.lock").read_text()
+    assert f'name = "{crate}"\nversion = "{version}"' in text, text
+
+
+@then(parsers.parse('the unreleased list of "{slug}" is empty'))
+def unreleased_of_empty(pkg, slug: str):
+    assert pkg.unreleased(slug) == []
+
+
+@then(parsers.parse('the unreleased list of "{slug}" holds "{category}" "{change}"'))
+def unreleased_of_holds(pkg, slug: str, category: str, change: str):
+    assert {"category": category, "change": change} in pkg.unreleased(slug)
