@@ -177,6 +177,20 @@ fn last_line(text: &str) -> String {
     line.chars().take(200).collect()
 }
 
+/// What to do next when a check fails for want of something a person
+/// makes: the quality audit `pubkit audit --check` looks for, which
+/// `pubkit audit prepare` starts. Empty for any other failure.
+fn next_step(check: &Check, output: &str, package: &str) -> String {
+    if check.run.contains("pubkit audit --check") && output.contains("no audit/") {
+        format!(
+            "\nnext: `pubkit audit prepare --package {package}` writes the report with what a \
+             machine can check; complete the rules it marks for review, then prepare again"
+        )
+    } else {
+        String::new()
+    }
+}
+
 /// Run every declared check and fact in `dir`.
 ///
 /// A check's result is the last line it printed to stdout, and a fact's
@@ -207,9 +221,10 @@ pub fn run(
             let tail: Vec<&str> = both.lines().rev().take(12).collect();
             let tail: Vec<&str> = tail.into_iter().rev().collect();
             return Err(format!(
-                "security check `{}` failed, so nothing is released:\n{}",
+                "security check `{}` failed, so nothing is released:\n{}{}",
                 check.name,
-                tail.join("\n")
+                tail.join("\n"),
+                next_step(check, &both, package)
             ));
         }
         let tool = match &check.version {
@@ -290,6 +305,28 @@ mod tests {
                 .both()
                 .contains('b')
         );
+    }
+
+    // covers: security::next_step
+    #[test]
+    fn a_missing_audit_report_names_the_command_that_starts_one() {
+        let audit = Check {
+            name: "quality audit current".to_owned(),
+            run: ".venv/bin/pubkit audit --check".to_owned(),
+            version: None,
+        };
+        let missing = "pubkit: no audit/demo-1.2.3.md: run the rust-crate-quality agent";
+        assert!(next_step(&audit, missing, "demo").contains("pubkit audit prepare --package demo"));
+        assert_eq!(
+            next_step(&audit, "pubkit: 2 finding(s) block a release", "demo"),
+            ""
+        );
+        let other = Check {
+            name: "advisories".to_owned(),
+            run: "cargo deny check".to_owned(),
+            version: None,
+        };
+        assert_eq!(next_step(&other, missing, "demo"), "");
     }
 
     // covers: security::Declared::from_json, security::Declared::is_empty

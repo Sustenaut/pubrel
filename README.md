@@ -41,6 +41,7 @@ Merging it is the release: CI tags it.
 | `next` | Prints the version the unreleased changes imply. |
 | `check BASE` | For CI on a pull request: a change to a `code` path must record a row. A release must be exactly the bump its changes require, published, and signed by `key` when `release.json` names one. |
 | `prepare [--no-pr]` | Cuts a release: publishes the package publet, commits on a `release/` branch, and opens a pull request. `--no-pr` stops after the commit. |
+| `prepare --all [--no-pr]` | Cuts one release of every package with unreleased changes, in one pull request, in dependency order. See [Releasing several packages at once](#releasing-several-packages-at-once). |
 | `withdraw PR\|BRANCH` | After a release's pull request is closed unmerged: keeps `pub` from publishing its objects again. See [Withdrawing a release](#withdrawing-a-release). |
 | `changelog` | Regenerates each package's changelog from its package publet. |
 | `tag` | For CI on main: for each package whose manifest version is published and not yet tagged, creates the tag and the GitHub release, then refreshes jsDelivr for a package that lists `jsdelivr` files. |
@@ -48,8 +49,9 @@ Merging it is the release: CI tags it.
 | `--help` | Prints the usage. |
 
 When `release.json` lists several packages, `--package NAME` (or
-`--package=NAME`) names the one that `add`, `summary` and `prepare` act on.
-`next` without it reports every package. `pubrel --help` (or `-h`, or
+`--package=NAME`) names the one that `add`, `summary` and `prepare` act on,
+and `prepare --all` releases every one that has changes. `next` without it
+reports every package. `pubrel --help` (or `-h`, or
 `help`) prints the usage to stdout. An unknown command prints it to
 stderr, and fails.
 
@@ -162,6 +164,27 @@ workspace bump never moves the pin of a crate released on its own, even
 when their versions coincide. That crate's own release pins its new version
 in the workspace.
 
+### Releasing several packages at once
+
+`pubrel prepare --all` releases every package whose unreleased changes
+make a release (the ones `pubrel next` gives a version), in one pull
+request. Each package is released after the packages it builds on: a crate
+released on its own comes before the workspace whose crates depend on it,
+so the workspace pins its new version and `Cargo.lock` records it. The
+order comes from `cargo metadata`, from normal and build dependencies. A
+dev-dependency is not published with a crate, so it does not order
+releases. Packages with no order between them keep `release.json`'s order.
+
+Every package's API check and security checks run first, each with its
+own `PUBREL_PACKAGE` and `PUBREL_VERSION`. If any fails, nothing is
+released and no branch is made. The branch is `release/` and the tags
+joined by `+` (`release/publet-algorithms-v0.2.2+v0.2.2`), and the pull
+request's notes hold each package's under its name. Merging it releases
+them all: `check` checks each release it carries, and `tag` tags each
+package whose new version main holds. A package with nothing to release is
+reported and left out. With one package to release, `--all` cuts the same
+release `--package` would.
+
 `install`, optional, is how a release is installed: release notes show it,
 with `{tag}` replaced by the release's git tag and `{version}` by its
 version.
@@ -214,7 +237,9 @@ beside them:
 release if one fails. Each check and fact runs with the release it is
 checking in its environment, `PUBREL_PACKAGE` (the package's name) and
 `PUBREL_VERSION`, so a check can judge that release: `pubkit audit --check`
-finds the quality audit report for it this way. It records what ran in a `security` claim in the
+finds the quality audit report for it this way. When that report is
+missing, `prepare` names `pubkit audit prepare --package NAME` as the next
+step. It records what ran in a `security` claim in the
 package publet: each check's command, its tool and version, and the last
 line the tool printed, beside each fact's value. The claim is signed with
 the release, and the changelog and the GitHub release list it. `check` and
@@ -258,7 +283,10 @@ release:
 ```
 
 On a pull request it runs `pubrel check`. On main it runs `pubrel tag`,
-which tags a published version and creates the GitHub release. CI never
+which tags a published version and creates the GitHub release, for every
+package whose version main now holds: one merged pull request from
+`prepare --all` tags each package it releases. A package that fails to tag
+does not stop the others, and `tag` fails after trying them all. CI never
 signs anything: a release is signed when its package publet is published,
 by whoever cut it.
 
