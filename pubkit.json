@@ -8,6 +8,15 @@
       "until": "2027-01-12"
     }
   ],
+  "ci": {
+    "cron": "41 3 * * *",
+    "with": {
+      "pub-version": "v0.2.1"
+    },
+    "release": {
+      "uses": "local"
+    }
+  },
   "protect": {
     "checks": [
       "ci / passed",
