@@ -11,53 +11,53 @@ permissions:
 jobs:
   gates:
     name: ci
-    uses: schryer/pubkit/.github/workflows/job-rust-gates.yml@v0.14.5
+    uses: schryer/pubkit/.github/workflows/job-rust-gates.yml@v0.14.6
     with: {"required": "fmt-check lint doc publish-check"}
 
   test:
     name: ci
     needs: [gates]
-    uses: schryer/pubkit/.github/workflows/job-rust-test.yml@v0.14.5
+    uses: schryer/pubkit/.github/workflows/job-rust-test.yml@v0.14.6
 
   functional:
     name: ci
     needs: [gates]
-    uses: schryer/pubkit/.github/workflows/job-rust-functional.yml@v0.14.5
+    uses: schryer/pubkit/.github/workflows/job-rust-functional.yml@v0.14.6
     with: {"pub-version": "v0.2.1", "required": "functional supply-chain-check"}
     secrets: inherit
 
   msrv:
     name: ci
     needs: [gates]
-    uses: schryer/pubkit/.github/workflows/job-rust-msrv.yml@v0.14.5
+    uses: schryer/pubkit/.github/workflows/job-rust-msrv.yml@v0.14.6
 
   fuzz:
     name: ci
     needs: [gates]
-    uses: schryer/pubkit/.github/workflows/job-rust-fuzz.yml@v0.14.5
+    uses: schryer/pubkit/.github/workflows/job-rust-fuzz.yml@v0.14.6
 
   cross:
     name: ci
     needs: [gates]
-    uses: schryer/pubkit/.github/workflows/job-rust-cross.yml@v0.14.5
+    uses: schryer/pubkit/.github/workflows/job-rust-cross.yml@v0.14.6
 
   audit:
     name: ci
-    uses: schryer/pubkit/.github/workflows/job-rust-audit.yml@v0.14.5
+    uses: schryer/pubkit/.github/workflows/job-rust-audit.yml@v0.14.6
     with: {"required": "deny vet"}
 
   osv:
     name: ci
-    uses: schryer/pubkit/.github/workflows/job-osv.yml@v0.14.5
+    uses: schryer/pubkit/.github/workflows/job-osv.yml@v0.14.6
 
   review:
     name: ci
-    uses: schryer/pubkit/.github/workflows/job-review.yml@v0.14.5
+    uses: schryer/pubkit/.github/workflows/job-review.yml@v0.14.6
 
   sonar:
     name: ci
     needs: [functional]
-    uses: schryer/pubkit/.github/workflows/job-sonar.yml@v0.14.5
+    uses: schryer/pubkit/.github/workflows/job-sonar.yml@v0.14.6
     with: {"reports": "sonar.rust.lcov.reportPaths=lcov.info sonar.python.coverage.reportPaths=*.xml"}
     secrets: inherit
 
