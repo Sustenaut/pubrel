@@ -297,7 +297,7 @@ pubrel builds on these rather than reimplementing them:
 | Crate | Version | What pubrel uses it for |
 |---|---|---|
 | [cargo-semver-checks](https://crates.io/crates/cargo-semver-checks) | 0.51.0 | Run as a tool, to compare a crate's API with its last release. |
-| [`publet-core`](https://crates.io/crates/publet-core) | 0.1.2 | Canonical CBOR, content identifiers and Ed25519, to read the package publet back and verify its signatures. |
+| [`publet-core`](https://crates.io/crates/publet-core) | 0.1.4 | Canonical CBOR, content identifiers and Ed25519, to read the package publet back and verify its signatures. |
 | [`semver`](https://crates.io/crates/semver) | 1 | Versions, and the range of `pub` releases it drives. |
 | [`toml_edit`](https://crates.io/crates/toml_edit) | 0.22 | Setting a manifest's version, keeping its comments and layout. |
 | [`serde_json`](https://crates.io/crates/serde_json) | 1 | `release.json`, `unreleased.json` and the corpus lock. |

@@ -1,4 +1,9 @@
 {
-  "changes": [],
+  "changes": [
+    {
+      "category": "security",
+      "change": "publet-core 0.1.4 replaces 0.1.2: it moves to ed25519-dalek 3 and sha2 0.11, so block-buffer 0.10.4 (GHSA-qwgh-2vcv-g2f7) is no longer built into pubrel; the new crates' cargo vet exemptions record the evidence that exists"
+    }
+  ],
   "comment": "Changes not yet released. One row per change: category changed or removed (a published interface changed: major), added (a feature: minor), or fixed or security (patch). `pubrel add` appends one; `pubrel summary` sets the release's summary; `pubrel prepare` moves them into the package publet."
 }
