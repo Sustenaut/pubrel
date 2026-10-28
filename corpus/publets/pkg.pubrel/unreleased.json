@@ -1,21 +1,4 @@
 {
-  "changes": [
-    {
-      "category": "security",
-      "change": "publet-core 0.1.4 replaces 0.1.2: it moves to ed25519-dalek 3 and sha2 0.11, so block-buffer 0.10.4 (GHSA-qwgh-2vcv-g2f7) is no longer built into pubrel; the new crates' cargo vet exemptions record the evidence that exists"
-    },
-    {
-      "category": "added",
-      "change": "`prepare --all` cuts one release pull request for every package with unreleased changes, each after the packages it depends on, so the workspace pins and Cargo.lock record their released versions"
-    },
-    {
-      "category": "fixed",
-      "change": "`tag` tries every package before failing, so one package that fails to tag does not keep the others in the same release from being tagged"
-    },
-    {
-      "category": "added",
-      "change": "when the quality audit report is missing, `prepare` names `pubkit audit prepare --package NAME` as the next step"
-    }
-  ],
+  "changes": [],
   "comment": "Changes not yet released. One row per change: category changed or removed (a published interface changed: major), added (a feature: minor), or fixed or security (patch). `pubrel add` appends one; `pubrel summary` sets the release's summary; `pubrel prepare` moves them into the package publet."
 }
