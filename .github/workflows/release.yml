@@ -13,6 +13,15 @@
 # API checked against its last release: pass semver-checks-version.
 # Nothing here signs: a release is signed when its package publet is
 # published, locally.
+#
+# A main branch whose tags a ruleset protects needs a pusher the ruleset
+# lets through, and an organization cannot name GitHub Actions as a
+# bypass actor. Pass a release GitHub App (contents: write) as
+# RELEASE_APP_ID and RELEASE_APP_KEY, name the app as the ruleset's bypass
+# actor, and the tag step pushes the tag and creates the release as the
+# app. Without them it uses the workflow's own token, as before. Only a
+# push to main mints the app's token: pull request and merge queue runs
+# never tag.
 name: release
 
 on:
@@ -30,15 +39,40 @@ on:
         description: The cargo-semver-checks version to install, for packages whose release.json entry sets semver-checks; empty installs none.
         type: string
         default: ''
+    secrets:
+      RELEASE_APP_ID:
+        description: The release GitHub App's id. With RELEASE_APP_KEY, main tags and releases as the app.
+        required: false
+      RELEASE_APP_KEY:
+        description: The release GitHub App's private key (PEM).
+        required: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      # Secrets cannot appear in a step's if, so say here whether both are set.
+      TAG_AS_APP: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.RELEASE_APP_ID != '' && secrets.RELEASE_APP_KEY != '' }}
     steps:
+      # A token for this repository alone, that can do no more than write
+      # its contents: push the tag and create the release.
+      - name: Mint the release app's token
+        id: app
+        if: env.TAG_AS_APP == 'true'
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_KEY }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+      # The checkout keeps its token for git, so `pubrel tag`'s push goes
+      # as the app when there is one.
       - uses: actions/checkout@v5
-        with: { fetch-depth: 0 }
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app.outputs.token || github.token }}
       - if: inputs.pubrel-version != ''
         uses: actions/cache@v4
         with:
@@ -82,8 +116,17 @@ jobs:
       - name: Tag and release what main publishes
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$APP_SLUG" ]; then
+            # The tag's tagger is the app's bot account.
+            bot="$APP_SLUG[bot]"
+            id="$(gh api "users/$bot" --jq .id)"
+            git config user.name "$bot"
+            git config user.email "$id+$bot@users.noreply.github.com"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          fi
           pubrel tag
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+          APP_SLUG: ${{ steps.app.outputs.app-slug }}
