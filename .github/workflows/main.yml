@@ -9,72 +9,100 @@ permissions:
   contents: read
 
 jobs:
+  # Whether the merge queue already passed this commit: then the jobs
+  # that only test it are skipped, and nothing here tests less than the
+  # queue did.
+  tested:
+    name: ci
+    uses: Sustenaut/pubkit/.github/workflows/job-tested.yml@e5f7a3611ef00c2dd3d154ffce3ea22ad1b34527 # v0.19.0
+    permissions:
+      actions: read
+      contents: read
+
   gates:
     name: ci
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-gates.yml@724684ec5a40ffb62414d72915bc65b1b7476d9f # v0.18.0
+    needs: [tested]
+    if: ${{ needs.tested.outputs.tested != 'true' }}
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-gates.yml@e5f7a3611ef00c2dd3d154ffce3ea22ad1b34527 # v0.19.0
     with: {"required": "fmt-check lint doc publish-check"}
 
   test:
     name: ci
-    needs: [gates]
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-test.yml@724684ec5a40ffb62414d72915bc65b1b7476d9f # v0.18.0
+    needs: [tested, gates]
+    if: ${{ needs.tested.outputs.tested != 'true' }}
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-test.yml@e5f7a3611ef00c2dd3d154ffce3ea22ad1b34527 # v0.19.0
 
   functional:
     name: ci
-    needs: [gates]
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-functional.yml@724684ec5a40ffb62414d72915bc65b1b7476d9f # v0.18.0
+    needs: [tested, gates]
+    if: ${{ needs.tested.outputs.tested != 'true' }}
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-functional.yml@e5f7a3611ef00c2dd3d154ffce3ea22ad1b34527 # v0.19.0
     with: {"pub-version": "v0.2.1", "required": "functional supply-chain-check"}
     secrets: { SONAR_TOKEN: '${{ secrets.SONAR_TOKEN }}' }
 
   msrv:
     name: ci
-    needs: [gates]
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-msrv.yml@724684ec5a40ffb62414d72915bc65b1b7476d9f # v0.18.0
+    needs: [tested, gates]
+    if: ${{ needs.tested.outputs.tested != 'true' }}
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-msrv.yml@e5f7a3611ef00c2dd3d154ffce3ea22ad1b34527 # v0.19.0
 
   fuzz:
     name: ci
-    needs: [gates]
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-fuzz.yml@724684ec5a40ffb62414d72915bc65b1b7476d9f # v0.18.0
+    needs: [tested, gates]
+    if: ${{ needs.tested.outputs.tested != 'true' }}
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-fuzz.yml@e5f7a3611ef00c2dd3d154ffce3ea22ad1b34527 # v0.19.0
 
   cross:
     name: ci
-    needs: [gates]
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-cross.yml@724684ec5a40ffb62414d72915bc65b1b7476d9f # v0.18.0
+    needs: [tested, gates]
+    if: ${{ needs.tested.outputs.tested != 'true' }}
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-cross.yml@e5f7a3611ef00c2dd3d154ffce3ea22ad1b34527 # v0.19.0
 
   audit:
     name: ci
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-audit.yml@724684ec5a40ffb62414d72915bc65b1b7476d9f # v0.18.0
+    needs: [tested]
+    if: ${{ needs.tested.outputs.tested != 'true' }}
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-audit.yml@e5f7a3611ef00c2dd3d154ffce3ea22ad1b34527 # v0.19.0
     with: {"required": "deny vet"}
 
   osv:
     name: ci
-    uses: Sustenaut/pubkit/.github/workflows/job-osv.yml@724684ec5a40ffb62414d72915bc65b1b7476d9f # v0.18.0
+    needs: [tested]
+    if: ${{ needs.tested.outputs.tested != 'true' }}
+    uses: Sustenaut/pubkit/.github/workflows/job-osv.yml@e5f7a3611ef00c2dd3d154ffce3ea22ad1b34527 # v0.19.0
 
   sonar:
     name: ci
-    needs: [functional]
-    uses: Sustenaut/pubkit/.github/workflows/job-sonar.yml@724684ec5a40ffb62414d72915bc65b1b7476d9f # v0.18.0
-    with: {"reports": "sonar.rust.lcov.reportPaths=lcov.info sonar.python.coverage.reportPaths=*.xml", "layout": "-Dsonar.sources=src -Dsonar.tests=tests,fuzz"}
+    needs: [tested, functional]
+    if: ${{ !failure() && !cancelled() }}
+    uses: Sustenaut/pubkit/.github/workflows/job-sonar.yml@e5f7a3611ef00c2dd3d154ffce3ea22ad1b34527 # v0.19.0
+    permissions:
+      actions: read
+      contents: read
+    with: {"reports": "sonar.rust.lcov.reportPaths=lcov.info sonar.python.coverage.reportPaths=*.xml", "layout": "-Dsonar.sources=src -Dsonar.tests=tests,fuzz", "coverage-run": "${{ needs.tested.outputs.run-id }}"}
     secrets: { SONAR_TOKEN: '${{ secrets.SONAR_TOKEN }}' }
 
   # The one check a ruleset requires: it passes only when every job
-  # above succeeded. None of them is ever skipped for not being asked for.
+  # above succeeded or, where the merge queue already passed the
+  # commit, was skipped for it. None is skipped for not being asked for.
   passed:
     name: ci / passed
     if: always()
-    needs: [gates, test, functional, msrv, fuzz, cross, audit, osv, sonar]
+    needs: [tested, gates, test, functional, msrv, fuzz, cross, audit, osv, sonar]
     runs-on: ubuntu-latest
     steps:
       - run: |
           echo "$RESULTS"
-          echo "$RESULTS" | jq -e 'all(.[]; .result == "success")' > /dev/null
-        env: { RESULTS: '${{ toJSON(needs) }}' }
+          echo "$RESULTS" | jq -e --arg tested "$TESTED" '.tested.result == "success"
+            and all(.[]; .result == "success" or (.result == "skipped" and $tested == "true"))' > /dev/null
+        env: { RESULTS: '${{ toJSON(needs) }}', TESTED: '${{ needs.tested.outputs.tested }}' }
 
   # The repository's own release workflow, built from this checkout,
   # so a change to it is tested here before a release carries it to
   # anyone else.
   release:
     needs: passed
+    if: ${{ !cancelled() && needs.passed.result == 'success' }}
     uses: ./.github/workflows/release.yml
     permissions:
       contents: write
