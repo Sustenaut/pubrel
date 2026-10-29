@@ -1,4 +1,13 @@
 {
-  "changes": [],
+  "changes": [
+    {
+      "category": "fixed",
+      "change": "prepare refuses to run security checks with a stale .venv: when a check runs .venv/bin/TOOL and the installed TOOL is not the version tests/requirements.lock pins, it says to run `make venv`, so a release is never judged, or recorded, with an old tool"
+    },
+    {
+      "category": "fixed",
+      "change": "when the quality audit report is missing and the repository pins a pubkit older than `audit prepare` (0.15.0), prepare says to move the pin first, and names `./pubkit audit prepare`, which runs the pinned pubkit"
+    }
+  ],
   "comment": "Changes not yet released. One row per change: category changed or removed (a published interface changed: major), added (a feature: minor), or fixed or security (patch). `pubrel add` appends one; `pubrel summary` sets the release's summary; `pubrel prepare` moves them into the package publet."
 }

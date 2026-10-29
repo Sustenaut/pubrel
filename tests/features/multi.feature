@@ -131,6 +131,6 @@ Feature: One repository releases several packages
     When I run pubrel "prepare --all --no-pr"
     Then it fails
     And stderr mentions "security check `quality audit current` failed, so nothing is released"
-    And stderr mentions "next: `pubkit audit prepare --package demo`"
+    And stderr mentions "next: `./pubkit audit prepare --package demo`"
     And the current branch is "main"
     And the unreleased list of "pkg.demo-algo" holds "added" "a faster sort"

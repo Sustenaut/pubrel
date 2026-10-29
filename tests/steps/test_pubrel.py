@@ -405,6 +405,26 @@ def check_fails(pkg, name: str):
                             "run": "echo 'error[vulnerability]: RUSTSEC-0000-0000' >&2; exit 1"})
 
 
+@given(parsers.parse('release.json declares the security check "{name}" that runs "{command}"'))
+def check_runs(pkg, name: str, command: str):
+    declare(pkg, "checks", {"name": name, "run": command})
+
+
+@given(parsers.parse('tests/requirements.lock pins pubkit "{pin}" and .venv has pubkit "{have}"'))
+def venv_has(pkg, pin: str, have: str):
+    # As `make venv` leaves it: the lock committed, .venv ignored.
+    (pkg.root / "tests").mkdir(exist_ok=True)
+    (pkg.root / "tests" / "requirements.lock").write_text(
+        f"pubkit @ https://github.com/schryer/pubkit/releases/download/v{pin}/pubkit-{pin}-py3-none-any.whl \\\n"
+        "    --hash=sha256:00\n")
+    site = pkg.root / ".venv" / "lib" / "python3.14" / "site-packages"
+    (site / f"pubkit-{have}.dist-info").mkdir(parents=True)
+    gitignore = pkg.root / ".gitignore"
+    gitignore.write_text(gitignore.read_text() + "/.venv/\n")
+    pkg.commit("pin pubkit")
+    pkg.git("push", "-q", "origin", "main")
+
+
 @given(parsers.parse('release.json declares the security fact "{name}" that prints "{value}"'))
 def fact_prints(pkg, name: str, value: str):
     declare(pkg, "facts", {"name": name, "run": f"echo '{value}'"})
