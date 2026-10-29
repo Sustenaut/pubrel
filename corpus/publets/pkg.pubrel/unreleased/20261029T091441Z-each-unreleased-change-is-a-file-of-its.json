@@ -1,4 +1,0 @@
-{
-  "category": "changed",
-  "change": "Each unreleased change is a file of its own: `pubrel add` writes unreleased/<UTC stamp>-<first words>.json and `pubrel summary` writes unreleased/summary.md, both in the package publet's directory, so pull requests that each record a change no longer conflict; `next`, `check` and `prepare` read the directory in name order, `check` counts the files a branch adds, and `prepare` deletes them, so a release pull request only deletes files there. A pubrel 0.5 unreleased.json is still read, its changes first, and the next release deletes it; `init` no longer writes one"
-}
