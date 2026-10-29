@@ -2,7 +2,7 @@
   "claims": {
     "identity": {
       "class": "archival",
-      "content": "pubrel 0.5.5 is released as v0.5.5 from commit 5dc8c032d673312478670bc97521bdf6180fc63f.",
+      "content": "pubrel 0.6.0 is released as v0.6.0 from commit 2c716539f97c546f6eb2652fd7b32a4c6547aecf.",
       "data": {
         "columns": [
           {
@@ -27,25 +27,25 @@
         "rows": [
           [
             "pubrel",
-            "0.5.5",
+            "0.6.0",
             "pubrel --version",
-            "pubrel 0.5.5",
-            "v0.5.5",
-            "5dc8c032d673312478670bc97521bdf6180fc63f"
+            "pubrel 0.6.0",
+            "v0.6.0",
+            "2c716539f97c546f6eb2652fd7b32a4c6547aecf"
           ]
         ]
       },
-      "scope": "the published release v0.5.5 of pubrel",
+      "scope": "the published release v0.6.0 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "5dc8c032d673312478670bc97521bdf6180fc63f"
+          "revision": "2c716539f97c546f6eb2652fd7b32a4c6547aecf"
         }
       ]
     },
     "release": {
       "class": "archival",
-      "content": "pubrel 0.5.5 was released on 2026-10-28 from commit 5dc8c032d673312478670bc97521bdf6180fc63f with these changes.",
+      "content": "pubrel 0.6.0 was released on 2026-10-29 from commit 2c716539f97c546f6eb2652fd7b32a4c6547aecf with these changes.",
       "data": {
         "columns": [
           {
@@ -57,37 +57,37 @@
         ],
         "rows": [
           [
-            "security",
-            "publet-core 0.1.4 replaces 0.1.2: it moves to ed25519-dalek 3 and sha2 0.11, so block-buffer 0.10.4 (GHSA-qwgh-2vcv-g2f7) is no longer built into pubrel; the new crates' cargo vet exemptions record the evidence that exists"
-          ],
-          [
-            "added",
-            "`prepare --all` cuts one release pull request for every package with unreleased changes, each after the packages it depends on, so the workspace pins and Cargo.lock record their released versions"
+            "internal",
+            "The repository moved to the Sustenaut organization: Cargo.toml's repository and documentation, and release.yml's cargo install --git, name Sustenaut/pubrel"
           ],
           [
             "fixed",
-            "`tag` tries every package before failing, so one package that fails to tag does not keep the others in the same release from being tagged"
+            "prepare refuses to run security checks with a stale .venv: when a check runs .venv/bin/TOOL and the installed TOOL is not the version tests/requirements.lock pins, it says to run `make venv`, so a release is never judged, or recorded, with an old tool"
           ],
           [
-            "added",
-            "when the quality audit report is missing, `prepare` names `pubkit audit prepare --package NAME` as the next step"
+            "fixed",
+            "when the quality audit report is missing and the repository pins a pubkit older than `audit prepare` (0.15.0), prepare says to move the pin first, and names `./pubkit audit prepare`, which runs the pinned pubkit"
+          ],
+          [
+            "changed",
+            "Each unreleased change is a file of its own: `pubrel add` writes unreleased/<UTC stamp>-<first words>.json and `pubrel summary` writes unreleased/summary.md, both in the package publet's directory, so pull requests that each record a change no longer conflict; `next`, `check` and `prepare` read the directory in name order, `check` counts the files a branch adds, and `prepare` deletes them, so a release pull request only deletes files there. A pubrel 0.5 unreleased.json is still read, its changes first, and the next release deletes it; `init` no longer writes one"
           ]
         ]
       },
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.5.5 of pubrel",
+      "scope": "the published release v0.6.0 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "5dc8c032d673312478670bc97521bdf6180fc63f"
+          "revision": "2c716539f97c546f6eb2652fd7b32a4c6547aecf"
         }
       ]
     },
     "security": {
       "class": "archival",
-      "content": "pubrel 0.5.5 passed these security checks before release on 2026-10-28.",
+      "content": "pubrel 0.6.0 passed these security checks before release on 2026-10-29.",
       "data": {
         "columns": [
           {
@@ -125,15 +125,15 @@
             "check",
             "supply-chain report current",
             ".venv/bin/pubkit supply-chain --check pubrel",
-            "pubkit 0.9.0",
+            "pubkit 0.17.0",
             "SUPPLY-CHAIN.md current for pubrel"
           ],
           [
             "check",
             "quality audit current",
             ".venv/bin/pubkit audit --check",
-            "pubkit 0.9.0",
-            "audit/pubrel-0.5.5.md: pubrel 0.5.5 audited on 2026-10-28 by pubkit audit prepare (pubkit 0.14.6 with schryer/pubkit#90), judged rules reviewed by Claude Code following rust-crate-quality against the "
+            "pubkit 0.17.0",
+            "audit/pubrel-0.6.0.md: pubrel 0.6.0 audited on 2026-10-29 by pubkit audit prepare (pubkit 0.17.0), judged rules reviewed by Claude Code following rust-crate-quality against the current standard (bc3c5"
           ],
           [
             "fact",
@@ -154,16 +154,16 @@
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.5.5 of pubrel",
+      "scope": "the published release v0.6.0 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "5dc8c032d673312478670bc97521bdf6180fc63f"
+          "revision": "2c716539f97c546f6eb2652fd7b32a4c6547aecf"
         }
       ]
     }
   },
-  "created": "2026-10-28T00:00:00Z",
+  "created": "2026-10-29T00:00:00Z",
   "sections": [
     {
       "heading": "Identity",
