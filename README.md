@@ -277,7 +277,7 @@ Every package calls the same workflow:
 
 ```yaml
 release:
-  uses: schryer/pubrel/.github/workflows/release.yml@vX.Y.Z
+  uses: Sustenaut/pubrel/.github/workflows/release.yml@vX.Y.Z
   with: { pubrel-version: vX.Y.Z }   # add semver-checks-version: 0.51.0 for API checks
   permissions: { contents: write }
 ```
