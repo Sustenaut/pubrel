@@ -74,7 +74,7 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.app.outputs.token || github.token }}
       - if: inputs.pubrel-version != ''
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/pubrel
           key: pubrel-${{ inputs.pubrel-version }}-${{ runner.os }}
@@ -97,7 +97,7 @@ jobs:
         env:
           INPUT_PUBREL: ${{ inputs.pubrel-version }}
       - if: inputs.semver-checks-version != ''
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cargo/bin/cargo-semver-checks
           key: cargo-semver-checks-${{ inputs.semver-checks-version }}-${{ runner.os }}
