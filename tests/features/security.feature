@@ -36,6 +36,15 @@ Feature: A release carries a signed record of its security checks
     And the manifest states "0.1.0"
     And the unreleased list holds "fixed" "a fixed change"
 
+  Scenario: A check does not run a stale tool from .venv
+    Given release.json declares the security check "quality audit current" that runs ".venv/bin/pubkit audit --check"
+    And tests/requirements.lock pins pubkit "0.15.2" and .venv has pubkit "0.9.1"
+    And the unreleased changes "fixed" pushed to main
+    When I run pubrel prepare
+    Then it fails
+    And stderr mentions ".venv has pubkit 0.9.1, but tests/requirements.lock pins 0.15.2: run `make venv`"
+    And the manifest states "0.1.0"
+
   Scenario: A release whose security record lost its signature fails check
     Given release.json declares the security check "advisories" that prints "advisories ok" with tool "cargo-deny 9.9.9"
     When a branch records "fixed" "an overflow" and is released
