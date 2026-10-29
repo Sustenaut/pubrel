@@ -1,5 +1,5 @@
 # Fuzz targets for what pubrel reads from a pull request. `pubrel check`
-# runs in CI on a branch's content, so release.json, unreleased.json, the
+# runs in CI on a branch's content, so release.json, unreleased changes, the
 # corpus lock and the manifests are untrusted input. A workspace of its own:
 # it needs a nightly compiler and libFuzzer, and none of its dependencies
 # belong in pubrel's supply chain.

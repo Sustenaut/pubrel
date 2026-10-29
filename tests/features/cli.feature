@@ -1,14 +1,14 @@
 Feature: Starting out, and asking pubrel about itself
-  `pubrel init` writes a repository's release.json and an empty unreleased
-  list. `--version` prints the line the release workflow matches, and
+  `pubrel init` writes a repository's release.json, and says where
+  `pubrel add` records changes. `--version` prints the line the release workflow matches, and
   `--help` prints the usage. An unknown command fails, with the usage on
   stderr.
 
-  Scenario: init writes release.json and an empty unreleased list
+  Scenario: init writes release.json and names the unreleased directory
     Given a fresh cargo repository named "demo"
     When I run pubrel "init"
     Then it succeeds
-    And it prints "release.json and corpus/publets/pkg.demo/unreleased.json written."
+    And it prints "release.json written; `pubrel add` records each change in corpus/publets/pkg.demo/unreleased/."
     And release.json names the package "demo" as "pkg.demo" with a "cargo-package" manifest at "Cargo.toml"
     And the unreleased list is empty
 
