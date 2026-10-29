@@ -1,4 +1,9 @@
 {
-  "changes": [],
+  "changes": [
+    {
+      "category": "fixed",
+      "change": "When the quality audit report is missing, the hint names `pubkit audit prepare` only if the repository pins pubkit 0.15.0 or later; one pinning an older pubkit is told to move the pin first"
+    }
+  ],
   "comment": "Changes not yet released. One row per change: category changed or removed (a published interface changed: major), added (a feature: minor), or fixed or security (patch). `pubrel add` appends one; `pubrel summary` sets the release's summary; `pubrel prepare` moves them into the package publet."
 }

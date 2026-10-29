@@ -177,17 +177,39 @@ fn last_line(text: &str) -> String {
     line.chars().take(200).collect()
 }
 
+/// The first pubkit release with `pubkit audit prepare`.
+const AUDIT_PREPARE: (u64, u64, u64) = (0, 15, 0);
+
+/// The pubkit release `dir` pins, from the wheel `pubkit sync` names in
+/// `tests/requirements-pubkit.txt`; `None` when there is none to read.
+fn pinned_pubkit(dir: &Path) -> Option<(String, (u64, u64, u64))> {
+    let text = std::fs::read_to_string(dir.join("tests/requirements-pubkit.txt")).ok()?;
+    let rest = text.split("/download/v").nth(1)?;
+    let release = rest.split('/').next()?.to_owned();
+    let mut parts = release.split('.').map(|p| p.parse::<u64>().ok());
+    let parsed = (parts.next()??, parts.next()??, parts.next()??);
+    Some((release, parsed))
+}
+
 /// What to do next when a check fails for want of something a person
 /// makes: the quality audit `pubkit audit --check` looks for, which
-/// `pubkit audit prepare` starts. Empty for any other failure.
-fn next_step(check: &Check, output: &str, package: &str) -> String {
-    if check.run.contains("pubkit audit --check") && output.contains("no audit/") {
-        format!(
+/// `pubkit audit prepare` starts, in a repository pinning a pubkit that has
+/// it; one pinning an older pubkit moves the pin first. Empty for any other
+/// failure.
+fn next_step(check: &Check, output: &str, package: &str, dir: &Path) -> String {
+    if !(check.run.contains("pubkit audit --check") && output.contains("no audit/")) {
+        return String::new();
+    }
+    match pinned_pubkit(dir) {
+        Some((release, parsed)) if parsed < AUDIT_PREPARE => format!(
+            "\nnext: this repository pins pubkit {release}, which has no `pubkit audit prepare` \
+             (it came in 0.15.0): move the pin first (the pubkit nightly, or `pubkit pins` from a \
+             newer pubkit), run `make venv`, then `pubkit audit prepare --package {package}`"
+        ),
+        _ => format!(
             "\nnext: `pubkit audit prepare --package {package}` writes the report with what a \
              machine can check; complete the rules it marks for review, then prepare again"
-        )
-    } else {
-        String::new()
+        ),
     }
 }
 
@@ -224,7 +246,7 @@ pub fn run(
                 "security check `{}` failed, so nothing is released:\n{}{}",
                 check.name,
                 tail.join("\n"),
-                next_step(check, &both, package)
+                next_step(check, &both, package, dir)
             ));
         }
         let tool = match &check.version {
@@ -316,9 +338,13 @@ mod tests {
             version: None,
         };
         let missing = "pubkit: no audit/demo-1.2.3.md: run the rust-crate-quality agent";
-        assert!(next_step(&audit, missing, "demo").contains("pubkit audit prepare --package demo"));
+        let here = Path::new(".");
+        assert!(
+            next_step(&audit, missing, "demo", here)
+                .contains("pubkit audit prepare --package demo")
+        );
         assert_eq!(
-            next_step(&audit, "pubkit: 2 finding(s) block a release", "demo"),
+            next_step(&audit, "pubkit: 2 finding(s) block a release", "demo", here),
             ""
         );
         let other = Check {
@@ -326,7 +352,38 @@ mod tests {
             run: "cargo deny check".to_owned(),
             version: None,
         };
-        assert_eq!(next_step(&other, missing, "demo"), "");
+        assert_eq!(next_step(&other, missing, "demo", here), "");
+    }
+
+    // covers: security::next_step, security::pinned_pubkit
+    #[test]
+    fn a_repository_pinning_a_pubkit_without_audit_prepare_is_told_to_move_the_pin() {
+        let audit = Check {
+            name: "quality audit current".to_owned(),
+            run: ".venv/bin/pubkit audit --check".to_owned(),
+            version: None,
+        };
+        let missing = "pubkit: no audit/demo-1.2.3.md";
+        let dir = std::env::temp_dir().join(format!("pubrel-pin-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("tests")).unwrap();
+        let pin = |release: &str| {
+            std::fs::write(
+                dir.join("tests/requirements-pubkit.txt"),
+                format!("pubkit @ https://github.com/schryer/pubkit/releases/download/v{release}/pubkit-{release}-py3-none-any.whl\n"),
+            )
+            .unwrap();
+        };
+        pin("0.14.6");
+        let old = next_step(&audit, missing, "demo", &dir);
+        assert!(
+            old.contains("pins pubkit 0.14.6, which has no `pubkit audit prepare`"),
+            "{old}"
+        );
+        pin("0.15.2");
+        assert!(
+            next_step(&audit, missing, "demo", &dir).starts_with("\nnext: `pubkit audit prepare")
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     // covers: security::Declared::from_json, security::Declared::is_empty
