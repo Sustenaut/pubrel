@@ -1,7 +1,7 @@
 # The release workflow every package calls:
 #
 #   release:
-#     uses: schryer/pubrel/.github/workflows/release.yml@vX.Y.Z
+#     uses: Sustenaut/pubrel/.github/workflows/release.yml@vX.Y.Z
 #     with: { pubrel-version: vX.Y.Z }
 #
 # On a pull request, `pubrel check` holds the change to the rules: code
@@ -54,7 +54,7 @@ jobs:
               # Published to crates.io from 0.5.0: the same source as the tag.
               cargo install --locked pubrel --version "$version"
             else
-              cargo install --locked --git https://github.com/schryer/pubrel --tag "$INPUT_PUBREL" pubrel
+              cargo install --locked --git https://github.com/Sustenaut/pubrel --tag "$INPUT_PUBREL" pubrel
             fi
           else
             cargo install --locked --path .

@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Report it privately through GitHub:
-**[report a vulnerability](https://github.com/schryer/pubrel/security/advisories/new)**
+**[report a vulnerability](https://github.com/Sustenaut/pubrel/security/advisories/new)**
 (the repository's Security tab, "Report a vulnerability"). Please don't open
 a public issue for it.
 
