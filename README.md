@@ -319,6 +319,27 @@ does not stop the others, and `tag` fails after trying them all. CI never
 signs anything: a release is signed when its package publet is published,
 by whoever cut it.
 
+A repository whose tags a ruleset protects needs a pusher the ruleset lets
+through, and an organization cannot name GitHub Actions as a bypass actor.
+Create a GitHub App with contents write, install it on the repository,
+name it as the tag ruleset's bypass actor, and pass it to the workflow:
+
+```yaml
+release:
+  uses: Sustenaut/pubrel/.github/workflows/release.yml@vX.Y.Z
+  with: { pubrel-version: vX.Y.Z }
+  permissions: { contents: write }
+  secrets:
+    RELEASE_APP_ID: ${{ secrets.RELEASE_APP_ID }}
+    RELEASE_APP_KEY: ${{ secrets.RELEASE_APP_KEY }}
+```
+
+On a push to main the workflow then mints a token for that repository
+alone, with contents write and nothing else, and `pubrel tag` pushes the
+tag and creates the release as the app. Without the two secrets it uses
+the workflow's own token, as before. Pull request and merge queue runs
+never mint the token or tag.
+
 ## Why pubrel
 
 - **The version is decided when a change lands, not at release time.** The
