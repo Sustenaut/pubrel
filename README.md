@@ -428,8 +428,8 @@ any of the following is recorded as `changed` or `removed`:
   `unreleased/` directory (one `.json` file per change, and
   `summary.md`), the claims it publishes in the package publet (which
   later versions read back), and the generated `CHANGELOG.md`.
-- **The reusable workflow** `.github/workflows/release.yml` and its
-  inputs.
+- **The reusable workflow** `.github/workflows/release.yml`, its inputs
+  and its secrets.
 
 ## Minimum Rust version
 
