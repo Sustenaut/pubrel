@@ -5,9 +5,9 @@ edition = "2024"
 rust-version = "1.88"
 license = "Apache-2.0"
 description = "Version packages by what changed, and record each release as a version of a package publet."
-repository = "https://github.com/schryer/pubrel"
+repository = "https://github.com/Sustenaut/pubrel"
 # A binary-only crate gets no docs.rs pages: the README is its documentation.
-documentation = "https://github.com/schryer/pubrel#readme"
+documentation = "https://github.com/Sustenaut/pubrel#readme"
 keywords = ["release", "versioning", "changelog", "semver", "publet"]
 categories = ["development-tools", "command-line-utilities"]
 # Anchored with /: like gitignore patterns, a bare name matches at any depth.
