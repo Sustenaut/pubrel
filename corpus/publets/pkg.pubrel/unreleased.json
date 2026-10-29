@@ -3,6 +3,10 @@
     {
       "category": "internal",
       "change": "The repository moved to the Sustenaut organization: Cargo.toml's repository and documentation, and release.yml's cargo install --git, name Sustenaut/pubrel"
+    },
+    {
+      "category": "internal",
+      "change": "Move to pubkit 0.16.0, whose workflows and pins name Sustenaut/pubkit, so CI starts again after the move to the Sustenaut organization"
     }
   ],
   "comment": "Changes not yet released. One row per change: category changed or removed (a published interface changed: major), added (a feature: minor), or fixed or security (patch). `pubrel add` appends one; `pubrel summary` sets the release's summary; `pubrel prepare` moves them into the package publet."
