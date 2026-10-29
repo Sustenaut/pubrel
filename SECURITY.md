@@ -58,7 +58,7 @@ commands.
 - the tests on a 32-bit (i686) and a big-endian (s390x) target, under
   emulation, and a build on the minimum Rust version;
 - fuzzing of part of what `check` reads from a pull request:
-  `release.json`, `unreleased.json`, the corpus lock and the manifests,
+  `release.json`, the unreleased changes, the corpus lock and the manifests,
   with the version arithmetic (`fuzz/`). Every input that once found a bug
   is replayed first (`fuzz/regressions/`). The package publet's objects,
   which `check` reads and verifies on a release pull request, are covered

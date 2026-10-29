@@ -254,12 +254,29 @@ impl Config {
         self.corpus_dir().join("publets").join(&self.package)
     }
 
-    /// The unreleased list, relative to the root, as git names it.
+    /// The directory of unreleased changes, relative to the root, as git
+    /// names it: one file per change, so pull requests that each record one
+    /// never touch the same file.
     pub fn unreleased_rel(&self) -> String {
+        self.publet_rel("unreleased")
+    }
+
+    /// The next release's summary, relative to the root, as git names it.
+    pub fn summary_rel(&self) -> String {
+        format!("{}/{SUMMARY}", self.unreleased_rel())
+    }
+
+    /// The single list of unreleased changes pubrel 0.5 kept, relative to
+    /// the root. It is still read, and the next release removes it.
+    pub fn legacy_rel(&self) -> String {
+        self.publet_rel("unreleased.json")
+    }
+
+    fn publet_rel(&self, name: &str) -> String {
         self.corpus
             .join("publets")
             .join(&self.package)
-            .join("unreleased.json")
+            .join(name)
             .to_string_lossy()
             .into_owned()
     }
@@ -317,8 +334,41 @@ pub struct Change {
     pub change: String,
 }
 
-/// The changes an `unreleased.json` lists. `None`, for a file that does
-/// not exist, lists none.
+/// The file in the unreleased directory that holds the next release's
+/// summary; every other `.json` file there is one change.
+pub const SUMMARY: &str = "summary.md";
+
+/// One change, checked: a known category and a description.
+fn checked(row: &Value) -> Result<Change, String> {
+    let field = |k: &str| {
+        row.get(k)
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_owned()
+    };
+    let (category, change) = (field("category"), field("change"));
+    if !version::known(&category) || change.trim().is_empty() {
+        return Err(format!(
+            "each change needs a known category ({}) and a description: {row}",
+            version::CATEGORIES.join(", ")
+        ));
+    }
+    Ok(Change { category, change })
+}
+
+/// The change one file of the unreleased directory records.
+///
+/// # Errors
+///
+/// Returns a message naming `name` if the text is not JSON, or if it has a
+/// category not in [`version::CATEGORIES`] or a blank `change`.
+pub fn change(text: &str, name: &str) -> Result<Change, String> {
+    let json: Value = serde_json::from_str(text).map_err(|e| format!("{name}: {e}"))?;
+    checked(&json).map_err(|e| format!("{name}: {e}"))
+}
+
+/// The changes a pubrel 0.5 `unreleased.json` lists. `None`, for a file
+/// that does not exist, lists none.
 ///
 /// # Errors
 ///
@@ -329,65 +379,88 @@ pub fn changes(text: Option<&str>) -> Result<Vec<Change>, String> {
         return Ok(Vec::new());
     };
     let json: Value = serde_json::from_str(text).map_err(|e| format!("unreleased.json: {e}"))?;
-    let mut out = Vec::new();
-    for row in json
-        .get("changes")
+    json.get("changes")
         .and_then(Value::as_array)
         .into_iter()
         .flatten()
-    {
-        let field = |k: &str| {
-            row.get(k)
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_owned()
-        };
-        let (category, change) = (field("category"), field("change"));
-        if !version::known(&category) || change.trim().is_empty() {
-            return Err(format!(
-                "each change needs a known category ({}) and a description: {row}",
-                version::CATEGORIES.join(", ")
-            ));
-        }
-        out.push(Change { category, change });
-    }
-    Ok(out)
+        .map(checked)
+        .collect()
 }
 
-/// The summary an `unreleased.json` gives the next release, if any.
+/// The summary a pubrel 0.5 `unreleased.json` gives the next release, if
+/// any.
 #[must_use]
 pub fn summary(text: Option<&str>) -> Option<String> {
     let json: Value = serde_json::from_str(text?).ok()?;
-    json.get("summary")
-        .and_then(Value::as_str)
-        .map(str::trim)
+    json.get("summary").and_then(Value::as_str).and_then(brief)
+}
+
+/// A summary's text, trimmed; `None` if it is blank.
+#[must_use]
+pub fn brief(text: &str) -> Option<String> {
+    Some(text.trim())
         .filter(|s| !s.is_empty())
         .map(str::to_owned)
 }
 
-/// Write an `unreleased.json`, creating its directory if need be.
+/// The file name a change recorded at `stamp` (`20261029T090622Z`) takes:
+/// the stamp, then the change's first words. Names sort in the order the
+/// changes were recorded, and two branches recording changes never pick
+/// the same one unless they record the same words in the same second. One
+/// `taken` says exists already gets a number.
+#[must_use]
+pub fn fragment_name(stamp: &str, change: &str, taken: impl Fn(&str) -> bool) -> String {
+    let mut slug = String::new();
+    for word in change
+        .split(|c: char| !c.is_ascii_alphanumeric())
+        .filter(|w| !w.is_empty())
+    {
+        if !slug.is_empty() && slug.len() + word.len() >= 40 {
+            break;
+        }
+        if !slug.is_empty() {
+            slug.push('-');
+        }
+        slug.push_str(&word.to_ascii_lowercase());
+    }
+    slug.truncate(40);
+    if slug.is_empty() {
+        slug.push_str("change");
+    }
+    let base = format!("{stamp}-{slug}");
+    let mut name = format!("{base}.json");
+    let mut n = 2;
+    while taken(&name) {
+        name = format!("{base}-{n}.json");
+        n += 1;
+    }
+    name
+}
+
+/// Write one change to `path`, creating its directory if need be.
 ///
 /// # Errors
 ///
 /// Returns a message if the directory cannot be created or the file cannot
 /// be written.
-pub fn write_changes(path: &Path, rows: &[Change], summary: Option<&str>) -> Result<(), String> {
+pub fn write_change(path: &Path, row: &Change) -> Result<(), String> {
+    let json = json!({"category": row.category, "change": row.change});
+    write_text(
+        path,
+        &(serde_json::to_string_pretty(&json).map_err(|e| e.to_string())? + "\n"),
+    )
+}
+
+/// Write `text` to `path`, creating its directory if need be.
+///
+/// # Errors
+///
+/// Returns a message if the directory cannot be created or the file cannot
+/// be written.
+pub fn write_text(path: &Path, text: &str) -> Result<(), String> {
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
     }
-    let mut json = json!({
-        "comment": "Changes not yet released. One row per change: category changed or \
-                    removed (a published interface changed: major), added (a feature: \
-                    minor), or fixed or security (patch). `pubrel add` appends one; \
-                    `pubrel summary` sets the release's summary; `pubrel prepare` moves \
-                    them into the package publet.",
-        "changes": rows.iter().map(|r| json!({"category": r.category, "change": r.change}))
-            .collect::<Vec<_>>(),
-    });
-    if let Some(summary) = summary {
-        json["summary"] = Value::String(summary.to_owned());
-    }
-    let text = serde_json::to_string_pretty(&json).map_err(|e| e.to_string())? + "\n";
     std::fs::write(path, text).map_err(|e| format!("{}: {e}", path.display()))
 }
 
@@ -822,6 +895,47 @@ mod tests {
             .is_err()
         );
         assert!(changes(None).unwrap().is_empty());
+    }
+
+    // covers: record::change
+    #[test]
+    fn a_change_file_is_validated_and_named_in_errors() {
+        let ok = change(r#"{"category": "fixed", "change": "x"}"#, "a.json").unwrap();
+        assert_eq!(ok.category, "fixed");
+        let bad = change(r#"{"category": "nope", "change": "x"}"#, "b.json").unwrap_err();
+        assert!(bad.starts_with("b.json: "), "{bad}");
+        assert!(
+            change("not json", "c.json")
+                .unwrap_err()
+                .starts_with("c.json: ")
+        );
+    }
+
+    // covers: record::fragment_name
+    #[test]
+    fn a_change_file_is_named_by_its_stamp_and_first_words() {
+        let none = |_: &str| false;
+        assert_eq!(
+            fragment_name("20261029T090622Z", "Fixed: `add` on Windows!", none),
+            "20261029T090622Z-fixed-add-on-windows.json"
+        );
+        assert_eq!(
+            fragment_name("20261029T090622Z", "ünïcode ✓", none),
+            "20261029T090622Z-n-code.json"
+        );
+        assert_eq!(fragment_name("S", "✓", none), "S-change.json");
+        let long = fragment_name("S", &"word ".repeat(30), none);
+        assert!(long.len() <= "S-.json".len() + 40, "{long}");
+        assert!(!long.contains("--") && !long.ends_with("-.json"), "{long}");
+        let taken = |n: &str| n == "S-a.json" || n == "S-a-2.json";
+        assert_eq!(fragment_name("S", "a", taken), "S-a-3.json");
+    }
+
+    // covers: record::brief
+    #[test]
+    fn a_brief_is_trimmed_and_never_blank() {
+        assert_eq!(brief(" Faster.\n").as_deref(), Some("Faster."));
+        assert_eq!(brief(" \n"), None);
     }
 
     // covers: record::summarizes

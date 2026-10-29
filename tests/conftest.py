@@ -56,6 +56,16 @@ MANIFESTS = {
 }
 
 
+def unreleased(root: Path, package: str = "pkg.demo") -> list[dict]:
+    """The changes a package has not released, as pubrel reads them: a
+    pubrel 0.5 unreleased.json's rows, then each file of the unreleased
+    directory in name order."""
+    publet = root / "corpus" / "publets" / package
+    legacy = publet / "unreleased.json"
+    rows = json.loads(legacy.read_text())["changes"] if legacy.exists() else []
+    return rows + [json.loads(p.read_text()) for p in sorted((publet / "unreleased").glob("*.json"))]
+
+
 class Package:
     """A package repository under test."""
 
@@ -194,8 +204,7 @@ class Package:
     # --- reading back -----------------------------------------------------
 
     def unreleased(self, package: str = "pkg.demo") -> list[dict]:
-        path = self.root / "corpus" / "publets" / package / "unreleased.json"
-        return json.loads(path.read_text())["changes"] if path.exists() else []
+        return unreleased(self.root, package)
 
     def manifest_version(self, manifest: str | None = None) -> str:
         text = (self.root / (manifest or self.manifest)).read_text()

@@ -9,6 +9,8 @@ from pathlib import Path
 
 from pytest_bdd import given, parsers, scenarios, then, when
 
+from conftest import unreleased
+
 scenarios("../features/add.feature")
 scenarios("../features/next.feature")
 scenarios("../features/check.feature")
@@ -22,6 +24,7 @@ scenarios("../features/api.feature")
 scenarios("../features/summary.feature")
 scenarios("../features/cli.feature")
 scenarios("../features/withdraw.feature")
+scenarios("../features/fragments.feature")
 
 
 # --- givens ------------------------------------------------------------------
@@ -559,9 +562,8 @@ def next_prints(pkg, version: str):
 # --- summaries -----------------------------------------------------------------
 
 
-def unreleased_json(pkg) -> dict:
-    path = pkg.root / "corpus" / "publets" / "pkg.demo" / "unreleased.json"
-    return json.loads(path.read_text()) if path.exists() else {}
+def summary_file(pkg) -> Path:
+    return pkg.root / "corpus" / "publets" / "pkg.demo" / "unreleased" / "summary.md"
 
 
 @given(parsers.parse('the summary "{text}"'))
@@ -609,7 +611,7 @@ def published_summary(pkg, content: str):
 
 @then("the unreleased list has no summary")
 def no_unreleased_summary(pkg):
-    assert "summary" not in unreleased_json(pkg)
+    assert not summary_file(pkg).exists()
 
 
 @then("no summary is published")
@@ -634,8 +636,7 @@ class FreshRepo:
                               capture_output=True, text=True, check=False)
 
     def unreleased(self, package: str = "pkg.demo") -> list[dict]:
-        path = self.root / "corpus" / "publets" / package / "unreleased.json"
-        return json.loads(path.read_text())["changes"]
+        return unreleased(self.root, package)
 
 
 @given(parsers.parse('a fresh cargo repository named "{name}"'), target_fixture="pkg")
@@ -897,3 +898,112 @@ def unreleased_of_empty(pkg, slug: str):
 @then(parsers.parse('the unreleased list of "{slug}" holds "{category}" "{change}"'))
 def unreleased_of_holds(pkg, slug: str, category: str, change: str):
     assert {"category": category, "change": change} in pkg.unreleased(slug)
+
+
+# --- one file per change ---------------------------------------------------------
+
+
+def unreleased_dir(pkg) -> Path:
+    return pkg.root / "corpus" / "publets" / "pkg.demo" / "unreleased"
+
+
+@given(parsers.parse('a branch "{name}" that records "{category}" "{change}"'))
+def branch_records(pkg, name: str, category: str, change: str):
+    pkg.git("checkout", "-q", "-b", name, "main")
+    pkg.add(category, change)
+    pkg.commit(f"record {change}")
+    pkg.git("checkout", "-q", "main")
+
+
+@given(parsers.parse('the change file "{name}" records "{category}" "{change}"'))
+def change_file(pkg, name: str, category: str, change: str):
+    path = unreleased_dir(pkg) / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"category": category, "change": change}, indent=2) + "\n")
+
+
+@given(parsers.parse('a pubrel 0.5 unreleased list holding "{category}" "{change}" '
+                     'and the summary "{summary}"'))
+def legacy_list(pkg, category: str, change: str, summary: str):
+    path = pkg.root / "corpus" / "publets" / "pkg.demo" / "unreleased.json"
+    path.write_text(json.dumps({"changes": [{"category": category, "change": change}],
+                                "summary": summary}, indent=2) + "\n")
+
+
+@given("they are pushed to main")
+def pushed(pkg):
+    if pkg.git("status", "--porcelain"):
+        pkg.commit("record changes")
+    pkg.git("push", "-q", "origin", "main")
+
+
+@when(parsers.parse('"{a}" and "{b}" are merged into main'))
+def merge_both(pkg, a: str, b: str):
+    for branch in (a, b):
+        pkg.git("merge", "-q", "--no-ff", "-m", f"Merge {branch}", branch)
+
+
+@when(parsers.parse('a branch changes "{path}" and rewords the change file "{name}"'))
+def branch_rewords(pkg, path: str, name: str):
+    branch_changes(pkg, path)
+    target = unreleased_dir(pkg) / name
+    row = json.loads(target.read_text())
+    target.write_text(json.dumps({**row, "change": row["change"] + ", reworded"}) + "\n")
+    pkg.commit("reword a change")
+
+
+@when(parsers.parse('a branch appends "{category}" "{change}" to the pubrel 0.5 unreleased list'))
+def branch_appends_legacy(pkg, category: str, change: str):
+    branch_changes(pkg, pkg.source)
+    path = pkg.root / "corpus" / "publets" / "pkg.demo" / "unreleased.json"
+    rows = json.loads(path.read_text()) if path.exists() else {"changes": []}
+    rows["changes"].append({"category": category, "change": change})
+    path.write_text(json.dumps(rows, indent=2) + "\n")
+    pkg.commit("record it the 0.5 way")
+
+
+@when(parsers.parse('the release branch also records "{category}" "{change}"'))
+def release_branch_records(pkg, category: str, change: str):
+    pkg.add(category, change)
+    pkg.commit("a change main gained")
+
+
+@then(parsers.parse('the unreleased directory holds {count:d} change files'))
+def holds_files(pkg, count: int):
+    names = [p.name for p in unreleased_dir(pkg).glob("*.json")]
+    assert len(names) == count, names
+
+
+@then(parsers.parse('the change file is named after when it was recorded and "{slug}"'))
+def named(pkg, slug: str):
+    import re
+    names = [p.name for p in unreleased_dir(pkg).glob("*.json")]
+    assert len(names) == 1, names
+    assert re.fullmatch(rf"\d{{8}}T\d{{6}}Z-{re.escape(slug)}\.json", names[0]), names
+
+
+@then(parsers.parse('the published release record lists "{first}" before "{second}"'))
+def record_order(pkg, first: str, second: str):
+    rows = [row[1] for row in pkg.published("pkg.demo#release")["body"]["data"]["rows"]]
+    assert first in rows and second in rows and rows.index(first) < rows.index(second), rows
+
+
+@then(parsers.parse('the published release record lists "{change}"'))
+def record_lists(pkg, change: str):
+    rows = [row[1] for row in pkg.published("pkg.demo#release")["body"]["data"]["rows"]]
+    assert change in rows, rows
+
+
+@then("the release deletes every unreleased file and adds none")
+def release_only_deletes(pkg):
+    publet = "corpus/publets/pkg.demo"
+    out = pkg.git("diff", "--name-status", "origin/main...HEAD", "--",
+                  f"{publet}/unreleased", f"{publet}/unreleased.json")
+    rows = [line.split("\t") for line in out.splitlines()]
+    assert rows and all(status == "D" for status, _ in rows), out
+    assert not unreleased_dir(pkg).exists() or not any(unreleased_dir(pkg).iterdir())
+
+
+@then("the pubrel 0.5 unreleased list is gone")
+def legacy_gone(pkg):
+    assert not (pkg.root / "corpus" / "publets" / "pkg.demo" / "unreleased.json").exists()

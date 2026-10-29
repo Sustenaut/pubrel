@@ -5,8 +5,9 @@
 //! package's own corpus -- whose `identity` claim states the version, tag,
 //! and commit, and whose `release` claim lists what changed. The publet's
 //! lineage is the release history; `CHANGELOG.md` is generated from it.
-//! Changes not yet released accumulate in an `unreleased.json` beside the
-//! package publet's source: workshop data, never published.
+//! Changes not yet released accumulate in an `unreleased/` directory beside
+//! the package publet's source, one file per change, so pull requests that
+//! each record a change never conflict: workshop data, never published.
 //!
 //! The version follows from the categories of what changed, never from
 //! judgement at release time (see [`version`]).
@@ -32,9 +33,10 @@ use version::Version;
 const USAGE: &str = "\
 usage: pubrel <command> [--package NAME]
 
-  init                    write release.json and an empty unreleased.json
-  add CATEGORY CHANGE...  record a change: changed, removed, added, fixed,
-                          security, or internal (no bump)
+  init                    write release.json
+  add CATEGORY CHANGE...  record a change, in a file of its own: changed,
+                          removed, added, fixed, security, or internal
+                          (no bump)
   summary [TEXT...]       set the next release's summary, a paragraph shown
                           above its changes; with no text, print it
   next                    the version the unreleased changes imply
@@ -174,14 +176,53 @@ fn at(cfg: &Config, rev: &str, path: &str) -> Option<String> {
     run("git", &["show", &format!("{rev}:{path}")], &cfg.root).ok()
 }
 
-fn unreleased(cfg: &Config) -> Result<Vec<Change>, String> {
-    let path = cfg.root.join(cfg.unreleased_rel());
-    record::changes(std::fs::read_to_string(path).ok().as_deref())
+/// The files of `cfg`'s unreleased directory that each record a change,
+/// in name order: the order they were recorded in.
+fn fragment_names(cfg: &Config) -> Result<Vec<String>, String> {
+    let dir = cfg.root.join(cfg.unreleased_rel());
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return Ok(Vec::new());
+    };
+    let mut names = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("{}: {e}", dir.display()))?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if Path::new(&name).extension().is_some_and(|e| e == "json") {
+            names.push(name);
+        }
+    }
+    names.sort();
+    Ok(names)
 }
 
+/// Every change not yet released: those the pubrel 0.5 `unreleased.json`
+/// still lists, then one per file of the unreleased directory, in name
+/// order.
+fn unreleased(cfg: &Config) -> Result<Vec<Change>, String> {
+    let legacy = cfg.root.join(cfg.legacy_rel());
+    let mut rows = record::changes(std::fs::read_to_string(legacy).ok().as_deref())?;
+    let dir = cfg.root.join(cfg.unreleased_rel());
+    for name in fragment_names(cfg)? {
+        let text = std::fs::read_to_string(dir.join(&name)).map_err(|e| format!("{name}: {e}"))?;
+        rows.push(record::change(
+            &text,
+            &format!("{}/{name}", cfg.unreleased_rel()),
+        )?);
+    }
+    Ok(rows)
+}
+
+/// The next release's summary: its own file's, or what the pubrel 0.5
+/// `unreleased.json` gives.
 fn unreleased_summary(cfg: &Config) -> Option<String> {
-    let path = cfg.root.join(cfg.unreleased_rel());
-    record::summary(std::fs::read_to_string(path).ok().as_deref())
+    std::fs::read_to_string(cfg.root.join(cfg.summary_rel()))
+        .ok()
+        .as_deref()
+        .and_then(record::brief)
+        .or_else(|| {
+            let legacy = std::fs::read_to_string(cfg.root.join(cfg.legacy_rel())).ok();
+            record::summary(legacy.as_deref())
+        })
 }
 
 fn categories(rows: &[Change]) -> Vec<&str> {
@@ -236,8 +277,10 @@ fn init() -> Result<(), String> {
     )
     .map_err(|e| e.to_string())?;
     let cfg = config(None)?;
-    record::write_changes(&cfg.root.join(cfg.unreleased_rel()), &[], None)?;
-    println!("release.json and {} written.", cfg.unreleased_rel());
+    println!(
+        "release.json written; `pubrel add` records each change in {}/.",
+        cfg.unreleased_rel()
+    );
     println!(
         "Set `tag` to a Section 9.1 tag (PKG-XXXXXX-MM-YYYY) and `code` to the paths users run."
     );
@@ -264,17 +307,16 @@ fn add(args: &[String], package: Option<&str>) -> Result<(), String> {
         return Err("say what changed: pubrel add CATEGORY CHANGE...".to_owned());
     }
     let cfg = config(package)?;
-    let mut rows = unreleased(&cfg)?;
-    rows.push(Change {
+    let row = Change {
         category: category.clone(),
         change: text.trim().to_owned(),
-    });
-    record::write_changes(
-        &cfg.root.join(cfg.unreleased_rel()),
-        &rows,
-        unreleased_summary(&cfg).as_deref(),
-    )?;
-    println!("{} change(s) unreleased", rows.len());
+    };
+    let stamp = run("date", &["-u", "+%Y%m%dT%H%M%SZ"], Path::new("."))?;
+    let dir = cfg.root.join(cfg.unreleased_rel());
+    let name = record::fragment_name(stamp.trim(), &row.change, |n| dir.join(n).exists());
+    record::write_change(&dir.join(&name), &row)?;
+    println!("{}/{name} written", cfg.unreleased_rel());
+    println!("{} change(s) unreleased", unreleased(&cfg)?.len());
     Ok(())
 }
 
@@ -288,10 +330,9 @@ fn summary(args: &[String], package: Option<&str>) -> Result<(), String> {
         }
         return Ok(());
     }
-    record::write_changes(
-        &cfg.root.join(cfg.unreleased_rel()),
-        &unreleased(&cfg)?,
-        Some(text.trim()),
+    record::write_text(
+        &cfg.root.join(cfg.summary_rel()),
+        &format!("{}\n", text.trim()),
     )?;
     println!("summary set for the next release of {}", cfg.name);
     Ok(())
@@ -364,9 +405,8 @@ fn check(base: &str) -> Result<(), String> {
     for cfg in &all {
         let code: Vec<&str> = changed.lines().filter(|p| cfg.owns(p)).collect();
         let rel = cfg.unreleased_rel();
-        let before = record::changes(at(cfg, base, &rel).as_deref())?;
         let after = unreleased(cfg)?;
-        let added = after.iter().filter(|r| !before.contains(r)).count();
+        let added = recorded_since(cfg, base)?;
         if !code.is_empty() && added == 0 {
             let flag = if several {
                 format!(" --package {}", cfg.name)
@@ -374,7 +414,7 @@ fn check(base: &str) -> Result<(), String> {
                 String::new()
             };
             missing.push(format!(
-                "{}this change touches {} but records no change in {rel}; \
+                "{}this change touches {} but records no change in {rel}/; \
                  run `pubrel add{flag} CATEGORY \"what changed\"`",
                 who(cfg),
                 code.join(", ")
@@ -393,6 +433,34 @@ fn check(base: &str) -> Result<(), String> {
     } else {
         Err(missing.join("\n"))
     }
+}
+
+/// How many changes this branch records that `base` does not: a file of
+/// the unreleased directory `base` lacks, or a row of the pubrel 0.5
+/// `unreleased.json` it lacks.
+fn recorded_since(cfg: &Config, base: &str) -> Result<usize, String> {
+    let dir = cfg.unreleased_rel();
+    let listed = run(
+        "git",
+        &["ls-tree", "--name-only", base, "--", &format!("{dir}/")],
+        &cfg.root,
+    )?;
+    let before: Vec<&str> = listed
+        .lines()
+        .filter_map(|p| Path::new(p).file_name()?.to_str())
+        .collect();
+    let files = fragment_names(cfg)?
+        .iter()
+        .filter(|n| !before.contains(&n.as_str()))
+        .count();
+    let rel = cfg.legacy_rel();
+    let old = record::changes(at(cfg, base, &rel).as_deref())?;
+    let legacy = cfg.root.join(&rel);
+    let rows = record::changes(std::fs::read_to_string(legacy).ok().as_deref())?
+        .iter()
+        .filter(|r| !old.contains(r))
+        .count();
+    Ok(files + rows)
 }
 
 /// Check `cfg`'s public API against its last release, if release.json asks
@@ -530,7 +598,9 @@ fn check_release(cfg: &Config, base: &str) -> Result<Option<Version>, String> {
     }
     if !unreleased(cfg)?.is_empty() {
         return Err(format!(
-            "a release moves every unreleased change into the package publet; {rel} still lists some"
+            "a release moves every unreleased change into the package publet, but {rel}/ \
+             still records some: main gained changes after the release was cut. Close the \
+             release, run `pubrel withdraw PR`, and prepare again from the current main"
         ));
     }
     Ok(Some(published))
@@ -785,7 +855,7 @@ fn cut_one(
         serde_json::to_string_pretty(&source).map_err(|e| e.to_string())? + "\n",
     )
     .map_err(|e| e.to_string())?;
-    record::write_changes(&cfg.root.join(cfg.unreleased_rel()), &[], None)?;
+    clear_unreleased(cfg)?;
     set_versions(cfg, all, &cut.release)?;
     manifest::refresh_lock(&cfg.root, cfg.kind, &cfg.name, &cfg.manifest, &cut.release)?;
     record::run_pub(&cfg.corpus_dir(), &["build"])?;
@@ -795,6 +865,26 @@ fn cut_one(
     );
     exported_cleanly(cfg, head)?;
     write_changelog(cfg)
+}
+
+/// Delete what `cut` has moved into the package publet: each change's
+/// file, the summary, and a pubrel 0.5 `unreleased.json`. A release pull
+/// request only deletes them, so it conflicts with no pull request that
+/// records a change.
+fn clear_unreleased(cfg: &Config) -> Result<(), String> {
+    let dir = cfg.root.join(cfg.unreleased_rel());
+    let mut gone: Vec<std::path::PathBuf> = fragment_names(cfg)?
+        .into_iter()
+        .map(|n| dir.join(n))
+        .collect();
+    gone.push(cfg.root.join(cfg.summary_rel()));
+    gone.push(cfg.root.join(cfg.legacy_rel()));
+    for path in gone.iter().filter(|p| p.exists()) {
+        std::fs::remove_file(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    }
+    // Empty once its changes are released, unless it holds files of its own.
+    let _ = std::fs::remove_dir(&dir);
+    Ok(())
 }
 
 /// After `pub publish`: every claim this release records is in `objects/`,

@@ -17,6 +17,8 @@ fuzz_target!(|text: &str| {
         let _ = cfg.manifest_dir();
         let _ = cfg.owns("src/main.rs");
         let _ = cfg.unreleased_rel();
+        let _ = cfg.summary_rel();
+        let _ = cfg.legacy_rel();
         let _ = cfg.lock_rel();
         let _ = cfg.manifest_rel();
     }
