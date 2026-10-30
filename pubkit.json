@@ -10,12 +10,16 @@
   ],
   "ci": {
     "cron": "41 3 * * *",
-    "with": {
-      "pub-version": "v0.2.1"
-    },
     "release": {
       "uses": "local"
-    }
+    },
+    "tools": [
+      {
+        "crate": "publet-cli",
+        "git": "https://github.com/Sustenaut/publet",
+        "tag": "v0.2.3"
+      }
+    ]
   },
   "protect": {
     "checks": [
@@ -23,5 +27,12 @@
       "release / release",
       "SonarCloud Code Analysis"
     ]
+  },
+  "nightly": {
+    "pins": {
+      "crates": [
+        "publet-core"
+      ]
+    }
   }
 }
