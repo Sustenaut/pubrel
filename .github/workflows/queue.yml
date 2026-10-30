@@ -1,0 +1,81 @@
+# Written by `pubkit sync` from the ci block of pubkit.json. Do not edit:
+# change pubkit.json and run `pubkit sync`.
+name: queue
+
+on:
+  merge_group:
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    name: ci
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-gates.yml@7914b2abb933747e303f5f981d8335d3704dcdb3 # v0.21.0
+    with: {"required": "fmt-check lint doc publish-check"}
+
+  test:
+    name: ci
+    needs: [gates]
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-test.yml@7914b2abb933747e303f5f981d8335d3704dcdb3 # v0.21.0
+
+  functional:
+    name: ci
+    needs: [gates]
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-functional.yml@7914b2abb933747e303f5f981d8335d3704dcdb3 # v0.21.0
+    with: {"pub-version": "v0.2.1", "required": "functional supply-chain-check"}
+    secrets: { SONAR_TOKEN: '${{ secrets.SONAR_TOKEN }}' }
+
+  msrv:
+    name: ci
+    needs: [gates]
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-msrv.yml@7914b2abb933747e303f5f981d8335d3704dcdb3 # v0.21.0
+
+  fuzz:
+    name: ci
+    needs: [gates]
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-fuzz.yml@7914b2abb933747e303f5f981d8335d3704dcdb3 # v0.21.0
+
+  cross:
+    name: ci
+    needs: [gates]
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-cross.yml@7914b2abb933747e303f5f981d8335d3704dcdb3 # v0.21.0
+
+  audit:
+    name: ci
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-audit.yml@7914b2abb933747e303f5f981d8335d3704dcdb3 # v0.21.0
+    with: {"required": "deny vet"}
+
+  osv:
+    name: ci
+    uses: Sustenaut/pubkit/.github/workflows/job-osv.yml@7914b2abb933747e303f5f981d8335d3704dcdb3 # v0.21.0
+
+  sonar:
+    name: ci
+    needs: [functional]
+    uses: Sustenaut/pubkit/.github/workflows/job-sonar.yml@7914b2abb933747e303f5f981d8335d3704dcdb3 # v0.21.0
+    with: {"reports": "sonar.rust.lcov.reportPaths=lcov.info sonar.python.coverage.reportPaths=*.xml", "layout": "-Dsonar.sources=src -Dsonar.tests=tests,fuzz"}
+    secrets: { SONAR_TOKEN: '${{ secrets.SONAR_TOKEN }}' }
+
+  # The one check a ruleset requires: it passes only when every job
+  # above succeeded. None of them is ever skipped for not being asked for.
+  passed:
+    name: ci / passed
+    if: always()
+    needs: [gates, test, functional, msrv, fuzz, cross, audit, osv, sonar]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "$RESULTS"
+          echo "$RESULTS" | jq -e 'all(.[]; .result == "success")' > /dev/null
+        env: { RESULTS: '${{ toJSON(needs) }}' }
+
+  # The repository's own release workflow, built from this checkout,
+  # so a change to it is tested here before a release carries it to
+  # anyone else.
+  release:
+    needs: passed
+    uses: ./.github/workflows/release.yml
+    secrets: { RELEASE_APP_ID: '${{ secrets.RELEASE_APP_ID }}', RELEASE_APP_KEY: '${{ secrets.RELEASE_APP_KEY }}' }
+    permissions:
+      contents: write
