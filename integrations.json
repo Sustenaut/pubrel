@@ -1,0 +1,49 @@
+{
+  "uses": [
+    {
+      "plugin": "crates-io.publish",
+      "paths": [
+        ".github/workflows/release.yml"
+      ]
+    },
+    {
+      "plugin": "github.app-token",
+      "paths": [
+        ".github/workflows/main.yml",
+        ".github/workflows/pr.yml",
+        ".github/workflows/queue.yml",
+        ".github/workflows/release.yml"
+      ]
+    },
+    {
+      "plugin": "github.repo-ops",
+      "paths": [
+        ".github/workflows/release.yml",
+        "src/jsdelivr.rs",
+        "src/main.rs",
+        "src/withdraw.rs"
+      ]
+    },
+    {
+      "plugin": "jsdelivr.purge",
+      "paths": [
+        "src/jsdelivr.rs"
+      ]
+    },
+    {
+      "plugin": "sonarcloud.scan",
+      "paths": [
+        ".github/workflows/main.yml",
+        ".github/workflows/nightly.yml",
+        ".github/workflows/pr.yml",
+        ".github/workflows/queue.yml"
+      ]
+    }
+  ],
+  "exclude": [
+    {
+      "path": "corpus/**",
+      "reason": "Release records, not code"
+    }
+  ]
+}
