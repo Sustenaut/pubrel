@@ -4,7 +4,8 @@
       "plugin": "crates-io.publish",
       "paths": [
         ".github/workflows/release.yml"
-      ]
+      ],
+      "mode": "required"
     },
     {
       "plugin": "github.app-token",
@@ -13,7 +14,8 @@
         ".github/workflows/pr.yml",
         ".github/workflows/queue.yml",
         ".github/workflows/release.yml"
-      ]
+      ],
+      "mode": "required"
     },
     {
       "plugin": "github.repo-ops",
@@ -22,13 +24,15 @@
         "src/jsdelivr.rs",
         "src/main.rs",
         "src/withdraw.rs"
-      ]
+      ],
+      "mode": "required"
     },
     {
       "plugin": "jsdelivr.purge",
       "paths": [
         "src/jsdelivr.rs"
-      ]
+      ],
+      "mode": "required"
     },
     {
       "plugin": "sonarcloud.scan",
@@ -37,7 +41,8 @@
         ".github/workflows/nightly.yml",
         ".github/workflows/pr.yml",
         ".github/workflows/queue.yml"
-      ]
+      ],
+      "mode": "required"
     }
   ],
   "exclude": [
