@@ -44,7 +44,8 @@ commands.
 
 ## What is checked in pubrel itself
 
-**On every pull request and push to `main`, CI runs:**
+**On every pull request, in the merge queue, and on every push to `main`, CI
+runs:**
 
 - `cargo fmt --check`;
 - `cargo clippy` with the `all` and `pedantic` groups, `unwrap_used`,
@@ -55,14 +56,6 @@ commands.
   repositories;
 - on a pull request, `pubrel check`, through pubrel's own release
   workflow built from the checkout;
-- the tests on a 32-bit (i686) and a big-endian (s390x) target, under
-  emulation, and a build on the minimum Rust version;
-- fuzzing of part of what `check` reads from a pull request:
-  `release.json`, the unreleased changes, the corpus lock and the manifests,
-  with the version arithmetic (`fuzz/`). Every input that once found a bug
-  is replayed first (`fuzz/regressions/`). The package publet's objects,
-  which `check` reads and verifies on a release pull request, are covered
-  by the Gherkin suite and unit tests, and not fuzzed;
 - `cargo deny check`: fails on any crate in the dependency tree with a
   RustSec advisory (vulnerable, unmaintained, unsound, or yanked), on a
   licence outside the permissive list, and on any source but crates.io
@@ -71,7 +64,20 @@ commands.
   Mozilla, Google, the Bytecode Alliance, Zcash, ISRG or Embark Studios, by
   a publisher those organisations trust, or by an exemption that records
   the evidence that does exist (`supply-chain/`). publet-core is trusted as
-  this project's own crate.
+  this project's own crate;
+- OSV-Scanner, against the dependencies in `Cargo.lock`;
+- on a pull request, GitHub's dependency review of what it adds.
+
+**In the merge queue and on every push to `main`, CI also runs:**
+
+- the tests on a 32-bit (i686) and a big-endian (s390x) target, under
+  emulation, and a build on the minimum Rust version;
+- fuzzing of part of what `check` reads from a pull request:
+  `release.json`, the unreleased changes, the corpus lock and the manifests,
+  with the version arithmetic (`fuzz/`). Every input that once found a bug
+  is replayed first (`fuzz/regressions/`). The package publet's objects,
+  which `check` reads and verifies on a release pull request, are covered
+  by the Gherkin suite and unit tests, and not fuzzed.
 
 **In the package:** [`SUPPLY-CHAIN.md`](SUPPLY-CHAIN.md) lists every crate
 pubrel builds, for any target, whether it runs code at build time, and how
