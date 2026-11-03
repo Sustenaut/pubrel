@@ -1,0 +1,4 @@
+{
+  "category": "added",
+  "change": "Cutting a release can drive `pub` 0.3, which can read PDC families and objects up to 1 MiB"
+}

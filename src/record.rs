@@ -2,7 +2,7 @@
 //! and the package publet its releases are versions of.
 //!
 //! Building and publishing the package publet -- which signs it -- go
-//! through the installed `pub`, a release from 0.1 or 0.2 (`>=0.1.0, <0.3.0`). Reading it back is
+//! through the installed `pub`, a release from 0.1 to 0.3 (`>=0.1.0, <0.4.0`). Reading it back is
 //! done here, with `publet-core` (see `published`).
 
 use std::path::{Path, PathBuf};
@@ -563,7 +563,7 @@ pub fn package_source(
 
 /// The `pub` releases this pubrel works with.
 static PUB_REQUIRED: std::sync::LazyLock<semver::VersionReq> = std::sync::LazyLock::new(|| {
-    semver::VersionReq::parse(">=0.1.0, <0.3.0").unwrap_or(semver::VersionReq::STAR)
+    semver::VersionReq::parse(">=0.1.0, <0.4.0").unwrap_or(semver::VersionReq::STAR)
 });
 
 /// The `pub` to drive: `$PUB`, or `pub` on the PATH.
@@ -572,8 +572,9 @@ pub fn pub_program() -> String {
 }
 
 /// Confirm the `pub` this will drive is one pubrel is tested with: at
-/// least 0.1.0 and below 0.3.0. pub 0.2.0 changed only render pipelines'
-/// tool requirements, which pubrel does not use; a later minor version is
+/// least 0.1.0 and below 0.4.0. pub 0.2.0 changed only render pipelines'
+/// tool requirements, and pub 0.3.0 only what it accepts of definitions and
+/// generation records, and the object size limit, none of which pubrel relies on; a later minor version is
 /// admitted once the suite passes against it.
 ///
 /// # Errors
@@ -596,9 +597,9 @@ pub fn require_pub() -> Result<(), String> {
         .filter(|v| PUB_REQUIRED.matches(v));
     if version.is_none() {
         return Err(format!(
-            "pubrel drives a released pub from 0.1 or 0.2, and `{program} --version` says \
+            "pubrel drives a released pub from 0.1 to 0.3, and `{program} --version` says \
              {first:?}; install one: cargo install --locked --git \
-             https://github.com/schryer/publet --tag v0.2.0 publet-cli"
+             https://github.com/Sustenaut/publet --tag v0.3.0 publet-cli"
         ));
     }
     Ok(())
@@ -860,6 +861,18 @@ fn plain_path(path: &str) -> bool {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+
+    // covers: require_pub
+    #[test]
+    fn the_releases_of_pub_it_drives_are_from_0_1_up_to_0_3() {
+        let admits = |v: &str| PUB_REQUIRED.matches(&version::parse(v).unwrap());
+        for good in ["0.1.0", "0.2.3", "0.3.0", "0.3.9"] {
+            assert!(admits(good), "{good}");
+        }
+        for bad in ["0.0.9", "0.4.0", "1.0.0"] {
+            assert!(!admits(bad), "{bad}");
+        }
+    }
 
     // covers: record::plain_path
     #[test]
