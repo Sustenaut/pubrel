@@ -2,7 +2,7 @@
   "claims": {
     "identity": {
       "class": "archival",
-      "content": "pubrel 0.6.1 is released as v0.6.1 from commit 48f3af8a88067aa79767dceed34b0280e9484cb4.",
+      "content": "pubrel 0.6.2 is released as v0.6.2 from commit b96af66d237eac55f81a2e611f14b428792415eb.",
       "data": {
         "columns": [
           {
@@ -27,25 +27,25 @@
         "rows": [
           [
             "pubrel",
-            "0.6.1",
+            "0.6.2",
             "pubrel --version",
-            "pubrel 0.6.1",
-            "v0.6.1",
-            "48f3af8a88067aa79767dceed34b0280e9484cb4"
+            "pubrel 0.6.2",
+            "v0.6.2",
+            "b96af66d237eac55f81a2e611f14b428792415eb"
           ]
         ]
       },
-      "scope": "the published release v0.6.1 of pubrel",
+      "scope": "the published release v0.6.2 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "48f3af8a88067aa79767dceed34b0280e9484cb4"
+          "revision": "b96af66d237eac55f81a2e611f14b428792415eb"
         }
       ]
     },
     "release": {
       "class": "archival",
-      "content": "pubrel 0.6.1 was released on 2026-10-29 from commit 48f3af8a88067aa79767dceed34b0280e9484cb4 with these changes.",
+      "content": "pubrel 0.6.2 was released on 2026-11-03 from commit b96af66d237eac55f81a2e611f14b428792415eb with these changes.",
       "data": {
         "columns": [
           {
@@ -58,24 +58,24 @@
         "rows": [
           [
             "added",
-            "release.yml takes two optional secrets, RELEASE_APP_ID and RELEASE_APP_KEY, for a release GitHub App: on a push to main it mints a token for that repository alone with contents write (actions/create-github-app-token), and the checkout, `pubrel tag`'s tag push and the GitHub release use it, so a tag ruleset can name the app as its bypass actor where an organization cannot name GitHub Actions. Without them it uses the workflow's own token as before; pull request and merge queue runs never mint it"
+            "Cutting a release can drive `pub` 0.3, which can read PDC families and objects up to 1 MiB"
           ]
         ]
       },
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.6.1 of pubrel",
+      "scope": "the published release v0.6.2 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "48f3af8a88067aa79767dceed34b0280e9484cb4"
+          "revision": "b96af66d237eac55f81a2e611f14b428792415eb"
         }
       ]
     },
     "security": {
       "class": "archival",
-      "content": "pubrel 0.6.1 passed these security checks before release on 2026-10-29.",
+      "content": "pubrel 0.6.2 passed these security checks before release on 2026-11-03.",
       "data": {
         "columns": [
           {
@@ -113,22 +113,22 @@
             "check",
             "supply-chain report current",
             ".venv/bin/pubkit supply-chain --check pubrel",
-            "pubkit 0.18.0",
+            "pubkit 0.24.0",
             "SUPPLY-CHAIN.md current for pubrel"
           ],
           [
             "check",
             "quality audit current",
             ".venv/bin/pubkit audit --check",
-            "pubkit 0.18.0",
-            "audit/pubrel-0.6.1.md: pubrel 0.6.1 audited on 2026-10-29 by pubkit audit prepare (pubkit 0.17.1), judged rules reviewed by Claude Code following rust-crate-quality against the current standard (bc3c5"
+            "pubkit 0.24.0",
+            "audit/pubrel-0.6.2.md: pubrel 0.6.2 audited on 2026-11-03 by pubkit audit prepare (pubkit 0.24.0), judged rules reviewed by Claude Code following rust-crate-quality against the current standard (bc3c5"
           ],
           [
             "fact",
             "RustSec advisory database revision",
             "git -C \"$(ls -d ~/.cargo/advisory-dbs/advisory-db-*/ | head -1)\" log -1 --format='%H (%cs)'",
             "",
-            "ee1a49a2769a24a596afc1c20cb33748d2769586 (2026-10-29)"
+            "263a4d951a0867d4bddc29dddd6d59427c78f9a7 (2026-11-02)"
           ],
           [
             "fact",
@@ -142,16 +142,16 @@
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.6.1 of pubrel",
+      "scope": "the published release v0.6.2 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "48f3af8a88067aa79767dceed34b0280e9484cb4"
+          "revision": "b96af66d237eac55f81a2e611f14b428792415eb"
         }
       ]
     }
   },
-  "created": "2026-10-29T00:00:00Z",
+  "created": "2026-11-03T00:00:00Z",
   "sections": [
     {
       "heading": "Identity",
