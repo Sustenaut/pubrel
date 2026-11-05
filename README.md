@@ -389,7 +389,7 @@ cargo install --locked pubrel
 Each GitHub release also names its own version
 (`cargo install --locked pubrel --version X.Y.Z`).
 
-Cutting a release (`pubrel prepare`) drives a released `pub` (0.1 to 0.3) to
+Cutting a release (`pubrel prepare`) drives a released `pub` (0.1 to 0.4) to
 build and publish the package publet, which signs it. That happens on the
 machine of whoever cuts it:
 

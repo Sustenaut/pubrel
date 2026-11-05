@@ -17,7 +17,7 @@
       {
         "crate": "publet-cli",
         "git": "https://github.com/Sustenaut/publet",
-        "tag": "v0.3.0"
+        "tag": "v0.4.0"
       }
     ]
   },
