@@ -1,4 +1,4 @@
-# Managed by pubkit 0.31.0: `pubkit sync` rewrites this file, and
+# Managed by pubkit 0.34.0: `pubkit sync` rewrites this file, and
 # `pubkit sync --check` fails when it differs. Include it from the Makefile,
 # and override the variables below there; targets of your own go there too.
 SHELL := /bin/bash
@@ -37,7 +37,8 @@ VENV := .venv/requirements.lock
 
 venv:: ## Python environment for the functional suite, hash-locked
 	python3 -m venv .venv
-	.venv/bin/pip install --quiet --require-hashes -r tests/requirements.lock
+	@# Tried three times, then from pubkit.json's wheel mirror: a release download can time out.
+	tests/install-lock .venv/bin/pip
 	cp tests/requirements.lock $(VENV)
 
 $(VENV): $(wildcard tests/requirements.lock)

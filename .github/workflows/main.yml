@@ -9,11 +9,11 @@ permissions:
   contents: read
 
 jobs:
-  # Whether the merge queue already passed this commit: then the jobs
-  # it ran are skipped, and nothing here tests less than the queue did.
+  # Whether an earlier run already passed on this commit's tree: then the
+  # jobs it ran are skipped, and nothing here tests less than it did.
   tested:
     name: ci
-    uses: Sustenaut/pubkit/.github/workflows/job-tested.yml@0c1f1c3ff98315c6eabad6b58ba9fad79374572a # v0.31.0
+    uses: Sustenaut/pubkit/.github/workflows/job-tested.yml@74ab84e90fc8b6f691ef4b3d717a9e838d49e4a8 # v0.34.0
     with: {"workflow": ".github/workflows/queue.yml"}
     permissions:
       actions: read
@@ -23,20 +23,20 @@ jobs:
     name: ci
     needs: [tested]
     if: ${{ needs.tested.outputs.tested != 'true' }}
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-gates.yml@0c1f1c3ff98315c6eabad6b58ba9fad79374572a # v0.31.0
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-gates.yml@74ab84e90fc8b6f691ef4b3d717a9e838d49e4a8 # v0.34.0
     with: {"required": "fmt-check lint doc publish-check"}
 
   test:
     name: ci
     needs: [tested, gates]
     if: ${{ needs.tested.outputs.tested != 'true' }}
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-test.yml@0c1f1c3ff98315c6eabad6b58ba9fad79374572a # v0.31.0
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-test.yml@74ab84e90fc8b6f691ef4b3d717a9e838d49e4a8 # v0.34.0
 
   functional:
     name: ci
     needs: [tested, gates]
     if: ${{ needs.tested.outputs.tested != 'true' }}
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-functional.yml@0c1f1c3ff98315c6eabad6b58ba9fad79374572a # v0.31.0
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-functional.yml@74ab84e90fc8b6f691ef4b3d717a9e838d49e4a8 # v0.34.0
     with: {"required": "functional supply-chain-check", "tools": "[{\"crate\": \"publet-cli\", \"git\": \"https://github.com/Sustenaut/publet\", \"tag\": \"v0.4.0\"}]"}
     secrets: { SONAR_TOKEN: '${{ secrets.SONAR_TOKEN }}' }
 
@@ -44,38 +44,38 @@ jobs:
     name: ci
     needs: [tested, gates]
     if: ${{ needs.tested.outputs.tested != 'true' }}
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-msrv.yml@0c1f1c3ff98315c6eabad6b58ba9fad79374572a # v0.31.0
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-msrv.yml@74ab84e90fc8b6f691ef4b3d717a9e838d49e4a8 # v0.34.0
 
   fuzz:
     name: ci
     needs: [tested, gates]
     if: ${{ needs.tested.outputs.tested != 'true' }}
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-fuzz.yml@0c1f1c3ff98315c6eabad6b58ba9fad79374572a # v0.31.0
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-fuzz.yml@74ab84e90fc8b6f691ef4b3d717a9e838d49e4a8 # v0.34.0
 
   cross:
     name: ci
     needs: [tested, gates]
     if: ${{ needs.tested.outputs.tested != 'true' }}
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-cross.yml@0c1f1c3ff98315c6eabad6b58ba9fad79374572a # v0.31.0
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-cross.yml@74ab84e90fc8b6f691ef4b3d717a9e838d49e4a8 # v0.34.0
 
   audit:
     name: ci
     needs: [tested]
     if: ${{ needs.tested.outputs.tested != 'true' }}
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-audit.yml@0c1f1c3ff98315c6eabad6b58ba9fad79374572a # v0.31.0
+    uses: Sustenaut/pubkit/.github/workflows/job-rust-audit.yml@74ab84e90fc8b6f691ef4b3d717a9e838d49e4a8 # v0.34.0
     with: {"required": "deny vet"}
 
   osv:
     name: ci
     needs: [tested]
     if: ${{ needs.tested.outputs.tested != 'true' }}
-    uses: Sustenaut/pubkit/.github/workflows/job-osv.yml@0c1f1c3ff98315c6eabad6b58ba9fad79374572a # v0.31.0
+    uses: Sustenaut/pubkit/.github/workflows/job-osv.yml@74ab84e90fc8b6f691ef4b3d717a9e838d49e4a8 # v0.34.0
 
   sonar:
     name: ci
     needs: [tested, functional]
     if: ${{ !failure() && !cancelled() }}
-    uses: Sustenaut/pubkit/.github/workflows/job-sonar.yml@0c1f1c3ff98315c6eabad6b58ba9fad79374572a # v0.31.0
+    uses: Sustenaut/pubkit/.github/workflows/job-sonar.yml@74ab84e90fc8b6f691ef4b3d717a9e838d49e4a8 # v0.34.0
     permissions:
       actions: read
       contents: read
@@ -83,8 +83,8 @@ jobs:
     secrets: { SONAR_TOKEN: '${{ secrets.SONAR_TOKEN }}' }
 
   # The one check a ruleset requires: it passes only when every job
-  # above succeeded or, where the merge queue already passed the
-  # commit, was skipped for it. None is skipped for not being asked for.
+  # above succeeded or, where an earlier run already passed on the
+  # commit's tree, was skipped for it. None is skipped for not being asked for.
   passed:
     name: ci / passed
     if: always()

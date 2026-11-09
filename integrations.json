@@ -50,5 +50,8 @@
       "path": "corpus/**",
       "reason": "Release records, not code"
     }
+  ],
+  "own_hosts": [
+    "sustenaut.eu"
   ]
 }
