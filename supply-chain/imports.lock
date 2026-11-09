@@ -2,8 +2,8 @@
 # cargo-vet imports lock
 
 [[publisher.itoa]]
-version = "1.0.18"
-when = "2026-03-20"
+version = "1.0.19"
+when = "2026-11-09"
 user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
@@ -58,8 +58,8 @@ user-login = "dtolnay"
 user-name = "David Tolnay"
 
 [[publisher.syn]]
-version = "3.0.9"
-when = "2026-10-12"
+version = "3.0.10"
+when = "2026-11-09"
 user-id = 3618
 user-login = "dtolnay"
 user-name = "David Tolnay"
