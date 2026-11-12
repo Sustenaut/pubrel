@@ -1,4 +1,4 @@
-# Managed by pubkit 0.36.0: `pubkit sync` rewrites this file, and
+# Managed by pubkit 0.37.0: `pubkit sync` rewrites this file, and
 # `pubkit sync --check` fails when it differs. Include it from the Makefile,
 # and override the variables below there; targets of your own go there too.
 SHELL := /bin/bash
@@ -7,7 +7,9 @@ export PATH := $(HOME)/.cargo/bin:$(CURDIR)/.venv/bin:$(PATH)
 
 CARGO ?= cargo
 CARGO_SCOPE ?= --workspace
-PYTEST_ARGS ?=
+# The Gherkin suite runs on every core (pytest-xdist, which tests/requirements.lock
+# pins); set PYTEST_ARGS = (empty) in the Makefile to run it on one.
+PYTEST_ARGS ?= -n auto
 # The crates published to crates.io. Each gets a SUPPLY-CHAIN.md, each
 # library among them a TESTING.md, and each is packaged by publish-check and
 # built by msrv.
