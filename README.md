@@ -319,6 +319,11 @@ does not stop the others, and `tag` fails after trying them all. CI never
 signs anything: a release is signed when its package publet is published,
 by whoever cut it.
 
+The job runs on GitHub's `ubuntu-latest` unless `runs-on` names another
+runner, such as a self-hosted runner scale set (`runs-on: sustenaut-ci`).
+A runner without Rust gets the stable toolchain first, to install pubrel,
+and a cache it can't reach only means pubrel is built again.
+
 A repository whose tags a ruleset protects needs a pusher the ruleset lets
 through, and an organization cannot name GitHub Actions as a bypass actor.
 Create a GitHub App with contents write, install it on the repository,

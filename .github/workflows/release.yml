@@ -11,6 +11,8 @@
 # publet and verify its signatures in-process, so no `pub` is installed.
 # A crate whose release.json entry sets semver-checks also has its public
 # API checked against its last release: pass semver-checks-version.
+# runs-on picks the runner (GitHub's ubuntu-latest by default): a self-hosted
+# one without Rust gets the stable toolchain before pubrel is installed.
 # Nothing here signs: a release is signed when its package publet is
 # published, locally.
 #
@@ -39,6 +41,10 @@ on:
         description: The cargo-semver-checks version to install, for packages whose release.json entry sets semver-checks; empty installs none.
         type: string
         default: ''
+      runs-on:
+        description: The runner label the job runs on, such as a self-hosted runner scale set; GitHub's ubuntu-latest by default. A runner without Rust gets the stable toolchain first.
+        type: string
+        default: ubuntu-latest
     secrets:
       RELEASE_APP_ID:
         description: The release GitHub App's id. With RELEASE_APP_KEY, main tags and releases as the app.
@@ -49,7 +55,7 @@ on:
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs-on }}
     permissions:
       contents: write
     env:
@@ -73,8 +79,20 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ steps.app.outputs.token || github.token }}
+      # GitHub's ubuntu-latest has Rust; a self-hosted runner may not.
+      - name: Is cargo here?
+        id: cargo
+        run: |
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          if command -v cargo >/dev/null || [ -x "$HOME/.cargo/bin/cargo" ]; then echo "found=true"; else echo "found=false"; fi >> "$GITHUB_OUTPUT"
+      - if: steps.cargo.outputs.found != 'true'
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      # A cache the runner can't reach (a blocked Actions billing answers with an
+      # error page) only means pubrel is built again.
       - if: inputs.pubrel-version != ''
         uses: actions/cache@v4
+        continue-on-error: true
+        timeout-minutes: 5
         with:
           path: ~/.cargo/bin/pubrel
           key: pubrel-${{ inputs.pubrel-version }}-${{ runner.os }}
@@ -98,6 +116,8 @@ jobs:
           INPUT_PUBREL: ${{ inputs.pubrel-version }}
       - if: inputs.semver-checks-version != ''
         uses: actions/cache@v4
+        continue-on-error: true
+        timeout-minutes: 5
         with:
           path: ~/.cargo/bin/cargo-semver-checks
           key: cargo-semver-checks-${{ inputs.semver-checks-version }}-${{ runner.os }}
