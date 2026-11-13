@@ -155,6 +155,11 @@ when it names the version being released.
   "key": "pub:sha2-256:m2smuezcqpjeyy6iofa2pjl47lgbwu254hohndyhs2do34fcrcma" }
 ```
 
+`tag` is the package's Section 9.1 tag, `<domain>-<name>-MM-YYYY`: 3 to 6 letters,
+six letters, a month 01 to 12 and a four-digit year, such as `PKG-STHEME-11-2026`.
+`pub` publishes no publet under another, so every command refuses one, and `check` fails
+the pull request that brings it.
+
 `key` is the key a release must be signed by: the corpus's author, which
 `pubrel init` records. `check` and `tag` verify that the package publet's
 `identity` and `release` claims carry a valid signature by it, and that every
