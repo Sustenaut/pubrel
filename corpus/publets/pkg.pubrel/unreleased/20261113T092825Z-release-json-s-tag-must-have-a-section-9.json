@@ -1,4 +1,0 @@
-{
-  "category": "fixed",
-  "change": "release.json's tag must have a Section 9.1 tag's shape (<domain>-<name>-MM-YYYY: 3-6 letters, six letters, a month 01-12, a four-digit year): every command refuses another, so check fails the pull request that brings one instead of the first prepare, where pub refused it"
-}

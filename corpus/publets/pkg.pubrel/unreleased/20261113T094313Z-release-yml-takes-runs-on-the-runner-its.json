@@ -1,4 +1,0 @@
-{
-  "category": "added",
-  "change": "release.yml takes runs-on, the runner its job runs on (GitHub's ubuntu-latest by default), so a private repository can release on a self-hosted runner scale set; a runner without Rust gets the stable toolchain to install pubrel, and an unreachable cache no longer fails the job"
-}
