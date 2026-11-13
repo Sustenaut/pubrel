@@ -196,7 +196,7 @@ impl Config {
             root: root.to_path_buf(),
             name,
             package: need("package")?,
-            tag: need("tag")?,
+            tag: section_tag(&need("tag")?)?,
             tag_prefix,
             corpus: PathBuf::from(shared("corpus").unwrap_or_else(|| "corpus".to_owned())),
             kind,
@@ -859,10 +859,68 @@ fn plain_path(path: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || "-._~/@+".contains(c))
 }
 
+/// `tag`, when it has the shape of a Section 9.1 tag, `<domain>-<name>-MM-YYYY`:
+/// 3 to 6 letters, six letters, a month 01 to 12 and a four-digit year. `pub`
+/// refuses any other when `prepare` publishes the package publet, so a
+/// `release.json` with one is refused here, before anything else runs: by
+/// `check` on the pull request that brings it, not by the first `prepare`.
+fn section_tag(tag: &str) -> Result<String, String> {
+    let bad = || {
+        format!(
+            "release.json's tag {tag} does not match <domain>-<name>-MM-YYYY: 3-6 letters, \
+             six letters, a two-digit month (01-12) and a four-digit year, such as PKG-STHEME-11-2026"
+        )
+    };
+    let letters = |s: &str| !s.is_empty() && s.bytes().all(|b| b.is_ascii_alphabetic());
+    let digits = |s: &str, n: usize| s.len() == n && s.bytes().all(|b| b.is_ascii_digit());
+    let parts: Vec<&str> = tag.split('-').collect();
+    let [domain, name, month, year] = parts.as_slice() else {
+        return Err(bad());
+    };
+    let month_ok = digits(month, 2) && matches!(month.parse::<u32>(), Ok(1..=12));
+    let domain_ok = letters(domain) && (3..=6).contains(&domain.len());
+    let name_ok = letters(name) && name.len() == 6;
+    if domain_ok && name_ok && month_ok && digits(year, 4) {
+        Ok(tag.to_owned())
+    } else {
+        Err(bad())
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
+
+    // covers: record::section_tag
+    #[test]
+    fn a_tag_has_the_shape_of_a_section_9_1_tag() {
+        for good in [
+            "PKG-STHEME-11-2026",
+            "PKG-PUBPRL-10-2026",
+            "ABCDEF-SUSTUI-01-2027",
+        ] {
+            assert_eq!(section_tag(good).unwrap(), good);
+        }
+        for bad in [
+            "PKG-SUI-11-2026",
+            "PKG-SUSTUI-13-2026",
+            "PKG-SUSTUI-00-2026",
+            "PK-SUSTUI-11-2026",
+            "PKG-SUSTUI-11-26",
+            "PKG-SUST1I-11-2026",
+            "PKG-SUSTUI-11",
+            "PKG-SUSTUI-11-2026-X",
+            "",
+        ] {
+            assert!(
+                section_tag(bad)
+                    .unwrap_err()
+                    .contains("<domain>-<name>-MM-YYYY"),
+                "{bad}"
+            );
+        }
+    }
 
     // covers: require_pub
     #[test]
