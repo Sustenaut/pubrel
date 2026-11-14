@@ -75,7 +75,7 @@ jobs:
           permission-contents: write
       # The checkout keeps its token for git, so `pubrel tag`'s push goes
       # as the app when there is one.
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           token: ${{ steps.app.outputs.token || github.token }}
@@ -90,7 +90,7 @@ jobs:
       # A cache the runner can't reach (a blocked Actions billing answers with an
       # error page) only means pubrel is built again.
       - if: inputs.pubrel-version != ''
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         continue-on-error: true
         timeout-minutes: 5
         with:
@@ -115,7 +115,7 @@ jobs:
         env:
           INPUT_PUBREL: ${{ inputs.pubrel-version }}
       - if: inputs.semver-checks-version != ''
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         continue-on-error: true
         timeout-minutes: 5
         with:
