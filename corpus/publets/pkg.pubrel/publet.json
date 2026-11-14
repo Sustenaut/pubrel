@@ -2,7 +2,7 @@
   "claims": {
     "identity": {
       "class": "archival",
-      "content": "pubrel 0.7.0 is released as v0.7.0 from commit 3c38c6c843c045dce1e3f7799c0d4f4a9ffe4fb6.",
+      "content": "pubrel 0.7.1 is released as v0.7.1 from commit 50c4771b30fd8331493b20d3a8c3f3a34703008e.",
       "data": {
         "columns": [
           {
@@ -27,25 +27,25 @@
         "rows": [
           [
             "pubrel",
-            "0.7.0",
+            "0.7.1",
             "pubrel --version",
-            "pubrel 0.7.0",
-            "v0.7.0",
-            "3c38c6c843c045dce1e3f7799c0d4f4a9ffe4fb6"
+            "pubrel 0.7.1",
+            "v0.7.1",
+            "50c4771b30fd8331493b20d3a8c3f3a34703008e"
           ]
         ]
       },
-      "scope": "the published release v0.7.0 of pubrel",
+      "scope": "the published release v0.7.1 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "3c38c6c843c045dce1e3f7799c0d4f4a9ffe4fb6"
+          "revision": "50c4771b30fd8331493b20d3a8c3f3a34703008e"
         }
       ]
     },
     "release": {
       "class": "archival",
-      "content": "pubrel 0.7.0 was released on 2026-11-13 from commit 3c38c6c843c045dce1e3f7799c0d4f4a9ffe4fb6 with these changes.",
+      "content": "pubrel 0.7.1 was released on 2026-11-14 from commit 50c4771b30fd8331493b20d3a8c3f3a34703008e with these changes.",
       "data": {
         "columns": [
           {
@@ -57,37 +57,25 @@
         ],
         "rows": [
           [
-            "changed",
-            "pubrel prepare drives pub 0.4 as well as 0.1 to 0.3."
-          ],
-          [
             "fixed",
-            "release.json's tag must have a Section 9.1 tag's shape (<domain>-<name>-MM-YYYY: 3-6 letters, six letters, a month 01-12, a four-digit year): every command refuses another, so check fails the pull request that brings one instead of the first prepare, where pub refused it"
-          ],
-          [
-            "added",
-            "release.yml takes runs-on, the runner its job runs on (GitHub's ubuntu-latest by default), so a private repository can release on a self-hosted runner scale set; a runner without Rust gets the stable toolchain to install pubrel, and an unreachable cache no longer fails the job"
-          ],
-          [
-            "internal",
-            "Update other crates the supply-chain audits cover"
+            "release.yml pins actions/cache 6.1.0 and actions/checkout 7.0.1 by commit: both run on Node 24, so a caller's release job no longer warns that Node 20 is deprecated"
           ]
         ]
       },
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.7.0 of pubrel",
+      "scope": "the published release v0.7.1 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "3c38c6c843c045dce1e3f7799c0d4f4a9ffe4fb6"
+          "revision": "50c4771b30fd8331493b20d3a8c3f3a34703008e"
         }
       ]
     },
     "security": {
       "class": "archival",
-      "content": "pubrel 0.7.0 passed these security checks before release on 2026-11-13.",
+      "content": "pubrel 0.7.1 passed these security checks before release on 2026-11-14.",
       "data": {
         "columns": [
           {
@@ -133,7 +121,7 @@
             "quality audit current",
             ".venv/bin/pubkit audit --check",
             "pubkit 0.37.1",
-            "audit/pubrel-0.7.0.md: pubrel 0.7.0 audited on 2026-11-13 by pubkit audit prepare (pubkit 0.37.0), judged rules reviewed by Claude Code following rust-crate-quality against the current standard (bc3c5"
+            "audit/pubrel-0.7.1.md: pubrel 0.7.1 audited on 2026-11-14 by pubkit audit prepare (pubkit 0.37.1), judged rules reviewed by Claude Code following rust-crate-quality against the current standard (bc3c5"
           ],
           [
             "fact",
@@ -154,16 +142,16 @@
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.7.0 of pubrel",
+      "scope": "the published release v0.7.1 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "3c38c6c843c045dce1e3f7799c0d4f4a9ffe4fb6"
+          "revision": "50c4771b30fd8331493b20d3a8c3f3a34703008e"
         }
       ]
     }
   },
-  "created": "2026-11-13T00:00:00Z",
+  "created": "2026-11-14T00:00:00Z",
   "sections": [
     {
       "heading": "Identity",
