@@ -1,0 +1,4 @@
+{
+  "category": "internal",
+  "change": "release.yml pins actions/cache 6.1.0 and actions/checkout 7.0.1 by commit: both run on Node 24, so the job no longer warns that Node 20 is deprecated"
+}
