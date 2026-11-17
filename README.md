@@ -270,9 +270,9 @@ beside them:
 `pubrel prepare` runs every check before it changes anything, and cuts no
 release if one fails. Each check and fact runs with the release it is
 checking in its environment, `PUBREL_PACKAGE` (the package's name) and
-`PUBREL_VERSION`, so a check can judge that release: `pubkit audit --check`
+`PUBREL_VERSION`, so a check can judge that release: `pubrules audit --check`
 finds the quality audit report for it this way. When that report is
-missing, `prepare` names `pubkit audit prepare --package NAME` as the next
+missing, `prepare` names `pubrules audit prepare --package NAME` as the next
 step. It records what ran in a `security` claim in the
 package publet: each check's command, its tool and version, and the last
 line the tool printed, beside each fact's value. The claim is signed with
@@ -471,8 +471,8 @@ A Gherkin suite (`tests/features`) covers the behaviour of every command.
 It drives the built binary against throwaway
 repositories with a real `pub` and a fake `gh`. Binaries
 are resolved from `PUBREL_BIN_DIR` and `PUB_BIN_DIR`. The shared testing
-setup is [pubkit](https://github.com/schryer/pubkit)'s: the plugin those
-fixtures and the common steps come from, `pubkit.mk`, the hash-locked pins,
+setup is [pubrules](https://github.com/schryer/pubrules)'s: the plugin those
+fixtures and the common steps come from, `pubrules.mk`, the hash-locked pins,
 and the CI workflow. `make sync-check` fails if the managed copies drift.
 
 Part of what `pubrel check` reads from a pull request is fuzzed (`fuzz/`):

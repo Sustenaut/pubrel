@@ -85,7 +85,7 @@ it is vouched for. It is generated, and CI fails if it is stale.
 
 **In every release:** `pubrel prepare` runs `cargo deny`, `cargo vet`, the
 report's check, and a check that a current quality audit of the release
-(`audit/pubrel-X.Y.Z.md`, by `pubkit audit --check`) counts nothing that
+(`audit/pubrel-X.Y.Z.md`, by `pubrules audit --check`) counts nothing that
 blocks it, before cutting a release, and records them as a signed
 `security` claim in pubrel's package publet: each command, its tool and
 version, and its summary, beside the RustSec database revision and the

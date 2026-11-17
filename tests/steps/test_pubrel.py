@@ -413,18 +413,18 @@ def check_runs(pkg, name: str, command: str):
     declare(pkg, "checks", {"name": name, "run": command})
 
 
-@given(parsers.parse('tests/requirements.lock pins pubkit "{pin}" and .venv has pubkit "{have}"'))
+@given(parsers.parse('tests/requirements.lock pins pubrules "{pin}" and .venv has pubrules "{have}"'))
 def venv_has(pkg, pin: str, have: str):
     # As `make venv` leaves it: the lock committed, .venv ignored.
     (pkg.root / "tests").mkdir(exist_ok=True)
     (pkg.root / "tests" / "requirements.lock").write_text(
-        f"pubkit @ https://github.com/schryer/pubkit/releases/download/v{pin}/pubkit-{pin}-py3-none-any.whl \\\n"
+        f"pubrules @ https://github.com/schryer/pubrules/releases/download/v{pin}/pubrules-{pin}-py3-none-any.whl \\\n"
         "    --hash=sha256:00\n")
     site = pkg.root / ".venv" / "lib" / "python3.14" / "site-packages"
-    (site / f"pubkit-{have}.dist-info").mkdir(parents=True)
+    (site / f"pubrules-{have}.dist-info").mkdir(parents=True)
     gitignore = pkg.root / ".gitignore"
     gitignore.write_text(gitignore.read_text() + "/.venv/\n")
-    pkg.commit("pin pubkit")
+    pkg.commit("pin pubrules")
     pkg.git("push", "-q", "origin", "main")
 
 
@@ -860,15 +860,15 @@ def multi_record_pushed(pkg, name: str, category: str, change: str):
 
 @given(parsers.parse('a quality audit check that finds no report for "{name}"'))
 def audit_finds_none(pkg, name: str):
-    # pubkit's message when the report is missing, from a `pubkit` that
+    # pubrules' message when the report is missing, from a `pubrules` that
     # fails only for that package.
-    fake = pkg.fake / "pubkit"
+    fake = pkg.fake / "pubrules"
     fake.write_text(
         '#!/bin/sh\nif [ "$PUBREL_PACKAGE" = "' + name + '" ]; then\n'
-        '  echo "pubkit: no audit/$PUBREL_PACKAGE-$PUBREL_VERSION.md: run the '
+        '  echo "pubrules: no audit/$PUBREL_PACKAGE-$PUBREL_VERSION.md: run the '
         'rust-crate-quality agent" >&2; exit 1\nfi\necho "audited"\n')
     fake.chmod(0o755)
-    declare(pkg, "checks", {"name": "quality audit current", "run": "pubkit audit --check"})
+    declare(pkg, "checks", {"name": "quality audit current", "run": "pubrules audit --check"})
 
 
 @when("the release branch is merged into main")

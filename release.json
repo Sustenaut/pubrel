@@ -33,13 +33,13 @@
       },
       {
         "name": "supply-chain report current",
-        "run": ".venv/bin/pubkit supply-chain --check pubrel",
-        "version": ".venv/bin/pubkit --version"
+        "run": ".venv/bin/pubrules supply-chain --check pubrel",
+        "version": ".venv/bin/pubrules --version"
       },
       {
         "name": "quality audit current",
-        "run": ".venv/bin/pubkit audit --check",
-        "version": ".venv/bin/pubkit --version"
+        "run": ".venv/bin/pubrules audit --check",
+        "version": ".venv/bin/pubrules --version"
       }
     ],
     "facts": [

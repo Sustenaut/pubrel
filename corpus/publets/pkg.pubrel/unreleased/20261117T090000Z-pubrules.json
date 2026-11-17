@@ -1,0 +1,4 @@
+{
+  "category": "changed",
+  "change": "pubkit is now pubrules: when the quality audit check (`pubrules audit --check`) finds no report, pubrel names `./pubrules audit prepare` and reads the pubrules pin from the lock; the repository runs on pubrules 0.43.0"
+}
