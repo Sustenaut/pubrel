@@ -65,7 +65,7 @@ The first audit's two blockers are fixed:
    holds:
    - `let` chains are stable in 1.88;
    - the `msrv` CI job exists;
-   - pubkit's rust-ci.yml v0.11.1 runs latest stable and beta on a
+   - pubrules's rust-ci.yml v0.11.1 runs latest stable and beta on a
      schedule;
    - the stated policy is a minor bump.
 

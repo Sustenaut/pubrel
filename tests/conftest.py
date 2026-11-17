@@ -5,10 +5,10 @@ throwaway git repository with a bare "remote", a real corpus and key made
 by a real released `pub`, and a fake `gh` that records what it was asked to
 do -- so nothing here touches GitHub, and nothing imports the Rust.
 
-Binaries are resolved by pubkit's `binary` fixture, from PUBREL_BIN_DIR
+Binaries are resolved by pubrules's `binary` fixture, from PUBREL_BIN_DIR
 (pubrel) and PUB_BIN_DIR (pub), so another implementation runs this suite
 by setting one variable. The steps that judge a result (`it succeeds`, `it
-prints "..."`) are pubkit's too.
+prints "..."`) are pubrules's too.
 """
 
 from __future__ import annotations

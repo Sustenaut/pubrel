@@ -110,7 +110,7 @@ pub struct Row {
 
 /// The release being cut, which every check and fact is told through its
 /// environment: `PUBREL_PACKAGE` (the package's name) and
-/// `PUBREL_VERSION`. A check can then judge that release, such as `pubkit
+/// `PUBREL_VERSION`. A check can then judge that release, such as `pubrules
 /// audit --check` finding its audit report.
 #[derive(Debug, Clone, Copy)]
 struct Release<'a> {
@@ -177,26 +177,26 @@ fn last_line(text: &str) -> String {
     line.chars().take(200).collect()
 }
 
-/// The pubkit release that added `pubkit audit prepare`.
+/// The pubrules release that added `pubrules audit prepare`.
 const AUDIT_PREPARE: (u64, u64, u64) = (0, 15, 0);
 
 /// What to do next when a check fails for want of something a person
-/// makes: the quality audit `pubkit audit --check` looks for, which
-/// `./pubkit audit prepare` starts. When the repository pins a pubkit
+/// makes: the quality audit `pubrules audit --check` looks for, which
+/// `./pubrules audit prepare` starts. When the repository pins a pubrules
 /// older than that command, the pin moves first. Empty for any other
 /// failure.
 fn next_step(check: &Check, output: &str, package: &str, dir: &Path) -> String {
-    if !(check.run.contains("pubkit audit --check") && output.contains("no audit/")) {
+    if !(check.run.contains("pubrules audit --check") && output.contains("no audit/")) {
         return String::new();
     }
     let prepare = format!(
-        "`./pubkit audit prepare --package {package}` writes the report with what a machine \
+        "`./pubrules audit prepare --package {package}` writes the report with what a machine \
          can check; complete the rules it marks for review, then prepare again"
     );
-    match pinned(dir, "pubkit") {
+    match pinned(dir, "pubrules") {
         Some(pin) if triple(&pin).is_some_and(|v| v < AUDIT_PREPARE) => format!(
-            "\nnext: this repository pins pubkit {pin}, older than `pubkit audit prepare` \
-             (0.15.0): move the pin to a current pubkit and run `make venv`, then {prepare}"
+            "\nnext: this repository pins pubrules {pin}, older than `pubrules audit prepare` \
+             (0.15.0): move the pin to a current pubrules and run `make venv`, then {prepare}"
         ),
         _ => format!("\nnext: {prepare}"),
     }
@@ -405,7 +405,7 @@ mod tests {
     struct Repo(std::path::PathBuf);
 
     impl Repo {
-        /// A repository whose lock pins pubkit `pin`, with `have` installed
+        /// A repository whose lock pins pubrules `pin`, with `have` installed
         /// in its `.venv` when given.
         fn new(pin: &str, have: Option<&str>) -> Self {
             use std::sync::atomic::{AtomicU64, Ordering};
@@ -420,14 +420,14 @@ mod tests {
                 path.join("tests/requirements.lock"),
                 format!(
                     "execnet==2.1.2 \\\n    --hash=sha256:00\n\
-                     pubkit @ https://github.com/schryer/pubkit/releases/download/v{pin}/\
-                     pubkit-{pin}-py3-none-any.whl \\\n    --hash=sha256:00\n"
+                     pubrules @ https://github.com/schryer/pubrules/releases/download/v{pin}/\
+                     pubrules-{pin}-py3-none-any.whl \\\n    --hash=sha256:00\n"
                 ),
             )
             .unwrap();
             if let Some(have) = have {
                 let site = path.join(".venv/lib/python3.14/site-packages");
-                std::fs::create_dir_all(site.join(format!("pubkit-{have}.dist-info"))).unwrap();
+                std::fs::create_dir_all(site.join(format!("pubrules-{have}.dist-info"))).unwrap();
                 std::fs::create_dir_all(site.join("execnet-2.1.2.dist-info")).unwrap();
             }
             Self(path)
@@ -443,8 +443,8 @@ mod tests {
     fn audit() -> Check {
         Check {
             name: "quality audit current".to_owned(),
-            run: ".venv/bin/pubkit audit --check".to_owned(),
-            version: Some(".venv/bin/pubkit --version".to_owned()),
+            run: ".venv/bin/pubrules audit --check".to_owned(),
+            version: Some(".venv/bin/pubrules --version".to_owned()),
         }
     }
 
@@ -452,14 +452,14 @@ mod tests {
     #[test]
     fn a_missing_audit_report_names_the_command_that_starts_one() {
         let repo = Repo::new("0.15.2", Some("0.15.2"));
-        let missing = "pubkit: no audit/demo-1.2.3.md: run the rust-crate-quality agent";
+        let missing = "pubrules: no audit/demo-1.2.3.md: run the rust-crate-quality agent";
         let next = next_step(&audit(), missing, "demo", &repo.0);
-        assert!(next.contains("`./pubkit audit prepare --package demo`"));
+        assert!(next.contains("`./pubrules audit prepare --package demo`"));
         assert!(!next.contains("move the pin"));
         assert_eq!(
             next_step(
                 &audit(),
-                "pubkit: 2 finding(s) block a release",
+                "pubrules: 2 finding(s) block a release",
                 "demo",
                 &repo.0
             ),
@@ -474,14 +474,14 @@ mod tests {
     }
 
     // covers: security::next_step, security::triple
-    // `audit prepare` arrived in pubkit 0.15.0; an older pin cannot run it.
+    // `audit prepare` arrived in pubrules 0.15.0; an older pin cannot run it.
     #[test]
     fn a_pin_older_than_audit_prepare_is_moved_first() {
         let repo = Repo::new("0.14.6", Some("0.14.6"));
-        let missing = "pubkit: no audit/demo-1.2.3.md: run the rust-crate-quality agent";
+        let missing = "pubrules: no audit/demo-1.2.3.md: run the rust-crate-quality agent";
         let next = next_step(&audit(), missing, "demo", &repo.0);
-        assert!(next.contains("pins pubkit 0.14.6, older than `pubkit audit prepare`"));
-        assert!(next.contains("`./pubkit audit prepare --package demo`"));
+        assert!(next.contains("pins pubrules 0.14.6, older than `pubrules audit prepare`"));
+        assert!(next.contains("`./pubrules audit prepare --package demo`"));
         assert_eq!(triple("0.15.0"), Some(AUDIT_PREPARE));
         assert_eq!(triple("1.2.3-rc.1"), Some((1, 2, 3)));
         assert_eq!(triple("1.2"), None);
@@ -491,15 +491,15 @@ mod tests {
     #[test]
     fn the_pin_and_the_installed_version_are_read_from_the_lock_and_the_venv() {
         let repo = Repo::new("0.15.2", Some("0.9.1"));
-        assert_eq!(pinned(&repo.0, "pubkit").as_deref(), Some("0.15.2"));
+        assert_eq!(pinned(&repo.0, "pubrules").as_deref(), Some("0.15.2"));
         assert_eq!(pinned(&repo.0, "execnet").as_deref(), Some("2.1.2"));
         assert_eq!(pinned(&repo.0, "absent"), None);
-        assert_eq!(installed(&repo.0, "pubkit").as_deref(), Some("0.9.1"));
+        assert_eq!(installed(&repo.0, "pubrules").as_deref(), Some("0.9.1"));
         assert_eq!(installed(&repo.0, "absent"), None);
     }
 
     // covers: security::venv_current, security::run
-    // A stale .venv ran pubkit 0.9.x for releases while the repositories
+    // A stale .venv ran pubrules 0.9.x for releases while the repositories
     // pinned 0.14.6, and the records named 0.9.x as the tool.
     #[test]
     fn checks_do_not_run_with_a_stale_venv() {
@@ -509,7 +509,7 @@ mod tests {
         };
         let stale = Repo::new("0.15.2", Some("0.9.1"));
         let err = run(&declared, &stale.0, "demo", "1.2.3").unwrap_err();
-        assert!(err.contains(".venv has pubkit 0.9.1, but tests/requirements.lock pins 0.15.2"));
+        assert!(err.contains(".venv has pubrules 0.9.1, but tests/requirements.lock pins 0.15.2"));
         assert!(err.contains("make venv"));
         let missing = Repo::new("0.15.2", None);
         assert!(

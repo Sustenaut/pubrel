@@ -1,5 +1,5 @@
-# Managed by pubkit 0.37.1: `pubkit sync` rewrites this file, and
-# `pubkit sync --check` fails when it differs. Include it from the Makefile,
+# Managed by pubrules 0.43.0: `pubrules sync` rewrites this file, and
+# `pubrules sync --check` fails when it differs. Include it from the Makefile,
 # and override the variables below there; targets of your own go there too.
 SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
@@ -34,12 +34,12 @@ help: ## Show available targets
 
 # The lock .venv was last built from. Each target that runs a tool from
 # .venv depends on it, so a moved pin rebuilds .venv before the target runs
-# an older pubkit than the repository pins.
+# an older pubrules than the repository pins.
 VENV := .venv/requirements.lock
 
 venv:: ## Python environment for the functional suite, hash-locked
 	python3 -m venv .venv
-	@# Tried three times, then from pubkit.json's wheel mirror: a release download can time out.
+	@# Tried three times, then from pubrules.json's wheel mirror: a release download can time out.
 	tests/install-lock .venv/bin/pip
 	cp tests/requirements.lock $(VENV)
 
@@ -47,10 +47,10 @@ $(VENV): $(wildcard tests/requirements.lock)
 	$(MAKE) --no-print-directory venv
 
 lock: $(VENV) ## Pin tests/requirements.txt, with hashes, in tests/requirements.lock
-	.venv/bin/pubkit lock
+	.venv/bin/pubrules lock
 
-sync-check: $(VENV) ## Fail if pubkit's managed files differ from the pinned version's
-	.venv/bin/pubkit sync --check
+sync-check: $(VENV) ## Fail if pubrules's managed files differ from the pinned version's
+	.venv/bin/pubrules sync --check
 
 fmt: ## Format Rust sources
 	$(CARGO) fmt --all
@@ -87,19 +87,19 @@ coverage: $(VENV) ## The Rust tests and the Gherkin suite on an instrumented bui
 	sed -i.bak 's|^SF:$(CURDIR)/|SF:|' coverage/lcov.info && rm coverage/lcov.info.bak
 
 supply-chain: $(VENV) ## Regenerate SUPPLY-CHAIN.md for each of SUPPLY_CHAIN_CRATES from supply-chain/
-	.venv/bin/pubkit supply-chain $(SUPPLY_CHAIN_CRATES)
+	.venv/bin/pubrules supply-chain $(SUPPLY_CHAIN_CRATES)
 
 supply-chain-check: $(VENV) ## Fail if a committed SUPPLY-CHAIN.md is stale
-	.venv/bin/pubkit supply-chain --check $(SUPPLY_CHAIN_CRATES)
+	.venv/bin/pubrules supply-chain --check $(SUPPLY_CHAIN_CRATES)
 
-# The targets below enforce the Rust crate standard's checked rules; `pubkit
+# The targets below enforce the Rust crate standard's checked rules; `pubrules
 # required` lists which each CI job runs here.
 
 doc-coverage: $(VENV) ## Regenerate each published library's TESTING.md
-	.venv/bin/pubkit doc-coverage $(PUBLISHED_CRATES)
+	.venv/bin/pubrules doc-coverage $(PUBLISHED_CRATES)
 
 doc-coverage-check: $(VENV) ## Fail if a public function has no example, a test covers no real item, or TESTING.md is stale
-	.venv/bin/pubkit doc-coverage --check $(PUBLISHED_CRATES)
+	.venv/bin/pubrules doc-coverage --check $(PUBLISHED_CRATES)
 
 vectors: ## Regenerate the test vectors from their independent sources
 	$(VECTORS_GENERATE)
@@ -135,4 +135,4 @@ vet: ## Every dependency is audited, trusted, or exempt with its evidence
 	cargo vet --locked
 
 required: $(VENV) ## The targets each CI job runs here, from the standard
-	.venv/bin/pubkit required
+	.venv/bin/pubrules required

@@ -1,5 +1,5 @@
-# Written by `pubkit sync` from the ci block of pubkit.json. Do not edit:
-# change pubkit.json and run `pubkit sync`.
+# Written by `pubrules sync` from the ci block of pubrules.json. Do not edit:
+# change pubrules.json and run `pubrules sync`.
 name: queue
 
 on:
@@ -11,44 +11,44 @@ permissions:
 jobs:
   gates:
     name: ci
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-gates.yml@2ed3af00875f91f6130a6ad7e8841554e0a6b8fc # v0.37.1
+    uses: Sustenaut/pubrules/.github/workflows/job-rust-gates.yml@2fe559caa00c029d9be864faa7f7cc20cd234d0e # v0.43.0
     with: {"required": "fmt-check lint doc publish-check"}
 
   test:
     name: ci
     needs: [gates]
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-test.yml@2ed3af00875f91f6130a6ad7e8841554e0a6b8fc # v0.37.1
+    uses: Sustenaut/pubrules/.github/workflows/job-rust-test.yml@2fe559caa00c029d9be864faa7f7cc20cd234d0e # v0.43.0
 
   functional:
     name: ci
     needs: [gates]
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-functional.yml@2ed3af00875f91f6130a6ad7e8841554e0a6b8fc # v0.37.1
+    uses: Sustenaut/pubrules/.github/workflows/job-rust-functional.yml@2fe559caa00c029d9be864faa7f7cc20cd234d0e # v0.43.0
     with: {"required": "functional supply-chain-check", "tools": "[{\"crate\": \"publet-cli\", \"git\": \"https://github.com/Sustenaut/publet\", \"tag\": \"v0.4.0\"}]"}
     secrets: { SONAR_TOKEN: '${{ secrets.SONAR_TOKEN }}' }
 
   msrv:
     name: ci
     needs: [gates]
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-msrv.yml@2ed3af00875f91f6130a6ad7e8841554e0a6b8fc # v0.37.1
+    uses: Sustenaut/pubrules/.github/workflows/job-rust-msrv.yml@2fe559caa00c029d9be864faa7f7cc20cd234d0e # v0.43.0
 
   fuzz:
     name: ci
     needs: [gates]
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-fuzz.yml@2ed3af00875f91f6130a6ad7e8841554e0a6b8fc # v0.37.1
+    uses: Sustenaut/pubrules/.github/workflows/job-rust-fuzz.yml@2fe559caa00c029d9be864faa7f7cc20cd234d0e # v0.43.0
 
   cross:
     name: ci
     needs: [gates]
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-cross.yml@2ed3af00875f91f6130a6ad7e8841554e0a6b8fc # v0.37.1
+    uses: Sustenaut/pubrules/.github/workflows/job-rust-cross.yml@2fe559caa00c029d9be864faa7f7cc20cd234d0e # v0.43.0
 
   audit:
     name: ci
-    uses: Sustenaut/pubkit/.github/workflows/job-rust-audit.yml@2ed3af00875f91f6130a6ad7e8841554e0a6b8fc # v0.37.1
+    uses: Sustenaut/pubrules/.github/workflows/job-rust-audit.yml@2fe559caa00c029d9be864faa7f7cc20cd234d0e # v0.43.0
     with: {"required": "deny vet"}
 
   osv:
     name: ci
-    uses: Sustenaut/pubkit/.github/workflows/job-osv.yml@2ed3af00875f91f6130a6ad7e8841554e0a6b8fc # v0.37.1
+    uses: Sustenaut/pubrules/.github/workflows/job-osv.yml@2fe559caa00c029d9be864faa7f7cc20cd234d0e # v0.43.0
 
   # The one check a ruleset requires: it passes only when every job
   # above succeeded. None of them is ever skipped for not being asked for.

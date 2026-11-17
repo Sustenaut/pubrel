@@ -1,9 +1,9 @@
-# The shared targets come from pubkit.mk, which pubkit manages: the ones the
+# The shared targets come from pubrules.mk, which pubrules manages: the ones the
 # Rust crate standard requires (`make required` lists what CI runs), and
 # venv, lock, fmt, test, build and supply-chain. This file adds pubrel's own.
 SUPPLY_CHAIN_CRATES := pubrel
 
-include pubkit.mk
+include pubrules.mk
 
 .DEFAULT_GOAL := help
 export PUBREL_BIN_DIR ?= $(CURDIR)/target/debug

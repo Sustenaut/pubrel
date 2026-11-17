@@ -4,7 +4,7 @@ version: 0.6.1
 standard: bc3c5b6eeba4757b5d96bc00be2d0a1d3221bef89072b06a271c2b28e2205e34
 blocking: 0
 date: 2026-10-29
-auditor: pubkit audit prepare (pubkit 0.17.1), judged rules reviewed by Claude Code following rust-crate-quality
+auditor: pubrules audit prepare (pubrules 0.17.1), judged rules reviewed by Claude Code following rust-crate-quality
 commit: 5714cb1d1d1a0577c02b5aa594a18a93d9a93d9c
 last-release: v0.6.0
 ---
@@ -19,14 +19,14 @@ patch bump. pubrel is a binary-only crate, so section 9 applies. The
 library-only rules do not: sections 1 and 2, §3.1 under its declared
 exception, and the docs.rs build.
 
-`pubkit audit prepare` wrote the header, ran the checks, decided the rules
+`pubrules audit prepare` wrote the header, ran the checks, decided the rules
 a machine can decide, and listed the evidence for the 14 rules that need
 judgement. Each of those was judged by reading the code, docs and
 workflows, and its finding moved below. Changes since `v0.6.0`: no Rust
 code. They are release.yml's optional `RELEASE_APP_ID` and
 `RELEASE_APP_KEY` secrets and the README text describing them (#72), and
-the move to pubkit 0.17.1 in the generated workflows, `pubkit`,
-`pubkit.mk`, AGENTS.md and the pubkit lock. So every judged rule about the
+the move to pubrules 0.17.1 in the generated workflows, `pubrules`,
+`pubrules.mk`, AGENTS.md and the pubrules lock. So every judged rule about the
 crate's code reads as it did for 0.6.0. This file should be committed with
 the release's changes.
 
@@ -57,7 +57,7 @@ None.
 
 3. **"On every pull request ... CI runs" includes jobs a pull request may
    skip** (§7, §10 "name things exactly"; SECURITY.md:46, 58-63). This is
-   carried from 0.5.5. With pubkit 0.17.1, `job-rust-cross.yml` and
+   carried from 0.5.5. With pubrules 0.17.1, `job-rust-cross.yml` and
    `job-rust-fuzz.yml` still pass at once, with a notice, on a pull
    request that touches no Rust code, Cargo files, `fuzz/` or workflow
    files.
@@ -78,7 +78,7 @@ None.
    and publet-core 0.1.4 are current. The crates pubrel builds on match
    Cargo.lock: semver 1.0.28, toml_edit 0.22.27 and serde_json 1.0.154.
 
-6. **Semicolons joining two ideas** (§10, §9.5). `pubkit audit prepare`
+6. **Semicolons joining two ideas** (§10, §9.5). `pubrules audit prepare`
    lists 30, such as README.md:53, README.md:224, src/main.rs:7 and
    src/record.rs:44-119. All predate this release: 0.6.0's finding 6 named
    the user-facing ones (src/main.rs:281, src/security.rs:194). The new
@@ -119,7 +119,7 @@ None.
 - **§7.1 SECURITY.md:** it says how to report privately, what is checked
   and when, and what fuzzing found. Each tool it names is run by a
   workflow on the triggers it gives, apart from findings 2 and 3.
-- **§5 packaging:** metadata, an anchored `include` and pubkit.mk's own
+- **§5 packaging:** metadata, an anchored `include` and pubrules.mk's own
   `publish-check` target directory. `documentation` points at the README,
   as §9 asks.
 - **RS-TEST-01:** under a declared exception, until 2027-01-12 (no test
@@ -144,4 +144,4 @@ None.
 
 - **`make fuzz-smoke` and `make functional`:** CI runs them on the release pull request.
 - **docs.rs build and `cargo test --doc`:** not applicable to a binary-only crate (§9).
-- **`pubkit audit draft`:** not used; the judged rules were reviewed by Claude Code.
+- **`pubrules audit draft`:** not used; the judged rules were reviewed by Claude Code.

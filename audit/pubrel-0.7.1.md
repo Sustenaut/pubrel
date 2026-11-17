@@ -4,7 +4,7 @@ version: 0.7.1
 standard: bc3c5b6eeba4757b5d96bc00be2d0a1d3221bef89072b06a271c2b28e2205e34
 blocking: 0
 date: 2026-11-14
-auditor: pubkit audit prepare (pubkit 0.37.1), judged rules reviewed by Claude Code following rust-crate-quality
+auditor: pubrules audit prepare (pubrules 0.37.1), judged rules reviewed by Claude Code following rust-crate-quality
 commit: b92370ffe11a81a854e7fc1dce6ad1d66288f627
 last-release: v0.7.0
 ---
@@ -18,7 +18,7 @@ for its one unreleased row, a `fixed` row: `release.yml` pins
 24 (#104, recorded as `fixed` by #105). pubrel is a binary-only crate, so
 section 9 applies.
 
-`pubkit audit prepare` wrote the header, ran the checks, decided the rules a
+`pubrules audit prepare` wrote the header, ran the checks, decided the rules a
 machine can decide, and listed the evidence for the 14 rules that need
 judgement. The only change since `v0.7.0` is three `uses:` lines in
 `.github/workflows/release.yml` and the changelog row. No Rust source, no
@@ -41,7 +41,7 @@ None.
    Every other entry point the machine lists is reached by the
    `release_json` or `manifest` target.
 2. **45 private items have no doc comment** (§9.2). Carried from 0.7.0's
-   finding 2, recounted on a fresh build at this commit. `pubkit audit
+   finding 2, recounted on a fresh build at this commit. `pubrules audit
    prepare` reports 0 because clippy prints no warnings for crates it has
    already checked and cached. Each item predates `v0.6.2`.
 
@@ -89,5 +89,5 @@ None.
   scenarios), and no code changed since.
 - **docs.rs build and `cargo test --doc`:** not applicable to a binary-only
   crate (§9).
-- **`pubkit audit draft`:** not used. The judged rules were reviewed by
+- **`pubrules audit draft`:** not used. The judged rules were reviewed by
   Claude Code.
