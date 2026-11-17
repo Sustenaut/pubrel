@@ -860,7 +860,7 @@ def multi_record_pushed(pkg, name: str, category: str, change: str):
 
 @given(parsers.parse('a quality audit check that finds no report for "{name}"'))
 def audit_finds_none(pkg, name: str):
-    # pubrules's message when the report is missing, from a `pubrules` that
+    # pubrules' message when the report is missing, from a `pubrules` that
     # fails only for that package.
     fake = pkg.fake / "pubrules"
     fake.write_text(

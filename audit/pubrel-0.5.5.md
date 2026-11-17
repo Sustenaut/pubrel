@@ -4,7 +4,7 @@ version: 0.5.5
 standard: bc3c5b6eeba4757b5d96bc00be2d0a1d3221bef89072b06a271c2b28e2205e34
 blocking: 0
 date: 2026-10-28
-auditor: pubrules audit prepare (pubrules 0.14.6 with schryer/pubrules#90), judged rules reviewed by Claude Code following rust-crate-quality
+auditor: pubkit audit prepare (pubkit 0.14.6 with schryer/pubkit#90), judged rules reviewed by Claude Code following rust-crate-quality
 commit: 62d72b82ee75108fd9d5ac778ddc9df49a18dc65
 last-release: v0.5.4
 ---
@@ -18,13 +18,13 @@ which below 1.0 make a patch. pubrel is a binary-only crate, so section 9
 applies, and the library-only rules (sections 1 and 2, §3.1 under its
 declared exception, the docs.rs build) do not.
 
-`pubrules audit prepare` wrote the header, ran the checks, decided the rules
+`pubkit audit prepare` wrote the header, ran the checks, decided the rules
 a machine can decide, and listed the evidence for the 14 rules that need
 judgement. Each of those was then judged by reading the code, docs and
 workflows, and its finding moved below. Changes since `v0.5.4`: `prepare
 --all` (`src/order.rs`, `src/main.rs`), the missing-audit hint
 (`src/security.rs`), `tag` trying every package, publet-core 0.1.4, and the
-CI generated from pubrules.json's `ci` block. This file should be committed
+CI generated from pubkit.json's `ci` block. This file should be committed
 with the release's changes.
 
 ## Blocks a release
@@ -82,7 +82,7 @@ None.
      changes; it takes no --package" joins two ideas with a semicolon. It
      is user-facing text (§9.5).
 
-   `pubrules audit prepare` lists 27 more semicolons in module docs, such as
+   `pubkit audit prepare` lists 27 more semicolons in module docs, such as
    README.md:195, src/main.rs:7 and src/record.rs:44-119. They predate this
    release, the 0.5.4 audit did not report them, and none is new text.
 
@@ -118,7 +118,7 @@ None.
   workflow on the triggers it gives, apart from finding 2. The imported
   audit sets match `supply-chain/config.toml`. "In every release" names the
   four checks release.json declares.
-- **§5 packaging:** metadata, an anchored `include` and pubrules.mk's own
+- **§5 packaging:** metadata, an anchored `include` and pubkit.mk's own
   `publish-check` target directory. `documentation` points at the README,
   as §9 asks.
 - **RS-TEST-01:** under a declared exception, until 2027-01-12 (no test
@@ -143,4 +143,4 @@ None.
 
 - **`make fuzz-smoke` and `make functional`:** CI runs them on the release pull request.
 - **docs.rs build and `cargo test --doc`:** not applicable to a binary-only crate (§9).
-- **`pubrules audit draft`:** not used; the judged rules were reviewed by hand.
+- **`pubkit audit draft`:** not used; the judged rules were reviewed by hand.

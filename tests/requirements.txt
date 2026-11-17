@@ -1,4 +1,4 @@
-# The functional suite's direct dependencies: pubrules's shared pins. The
+# The functional suite's direct dependencies: pubrules' shared pins. The
 # resolved set with hashes lives in requirements.lock; regenerate it with
 # `make lock`.
 -r requirements-pubrules.txt

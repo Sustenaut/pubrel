@@ -4,7 +4,7 @@ version: 0.6.2
 standard: bc3c5b6eeba4757b5d96bc00be2d0a1d3221bef89072b06a271c2b28e2205e34
 blocking: 0
 date: 2026-11-03
-auditor: pubrules audit prepare (pubrules 0.24.0), judged rules reviewed by Claude Code following rust-crate-quality
+auditor: pubkit audit prepare (pubkit 0.24.0), judged rules reviewed by Claude Code following rust-crate-quality
 commit: 532cd2e10b2f6075e3989b303f84e86c044f48f0
 last-release: v0.6.1
 ---
@@ -17,12 +17,12 @@ one unreleased change, an `added` row: `prepare` drives `pub` from 0.1 up to
 0.3, where it stopped below 0.3. Below 1.0 an addition is a patch bump. pubrel
 is a binary-only crate, so section 9 applies.
 
-`pubrules audit prepare` wrote the header, ran the checks, decided the rules a
+`pubkit audit prepare` wrote the header, ran the checks, decided the rules a
 machine can decide, and listed the evidence for the 14 rules that need
 judgement. Each was judged by reading the code, docs and workflows. The only
 Rust change since `v0.6.1` is #86, in `src/record.rs`: the accepted range of
 `pub`, its documentation and refusal message, and a unit test. The rest is
-generated pubrules files, CI workflows, `integrations.json`, and the move of
+generated pubkit files, CI workflows, `integrations.json`, and the move of
 `pub` in CI to `v0.3.0`. So every judged rule about the code reads as it did
 for 0.6.1.
 
@@ -42,7 +42,7 @@ None.
 
 - **R1. Was false: SECURITY.md said fuzzing, the cross-target tests and the
   minimum Rust version build run on every pull request** (§7.1, the machine's
-  finding at `SECURITY.md:60`). Since the move to pubrules's merge queue they run
+  finding at `SECURITY.md:60`). Since the move to pubkit's merge queue they run
   in `queue.yml`, `main.yml` and `nightly.yml`, and `pr.yml` runs neither
   `job-rust-fuzz` nor `job-rust-cross` nor `job-rust-msrv`. SECURITY.md now
   lists them under the merge queue and pushes to main. This also resolves
@@ -105,4 +105,4 @@ None.
 
 - **`make fuzz-smoke`:** CI runs it in the merge queue and on main.
 - **docs.rs build and `cargo test --doc`:** not applicable to a binary-only crate (§9).
-- **`pubrules audit draft`:** not used; the judged rules were reviewed by Claude Code.
+- **`pubkit audit draft`:** not used; the judged rules were reviewed by Claude Code.

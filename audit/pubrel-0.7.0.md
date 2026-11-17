@@ -4,7 +4,7 @@ version: 0.7.0
 standard: bc3c5b6eeba4757b5d96bc00be2d0a1d3221bef89072b06a271c2b28e2205e34
 blocking: 0
 date: 2026-11-13
-auditor: pubrules audit prepare (pubrules 0.37.0), judged rules reviewed by Claude Code following rust-crate-quality
+auditor: pubkit audit prepare (pubkit 0.37.0), judged rules reviewed by Claude Code following rust-crate-quality
 commit: ddc6f2cce0e787fb993c242a4950ab63e48a634d
 last-release: v0.6.2
 ---
@@ -19,14 +19,14 @@ tag's shape) and an `added` row (#100: `release.yml` takes `runs-on`). Below
 1.0 a `changed` row is a minor bump. pubrel is a binary-only crate, so
 section 9 applies.
 
-`pubrules audit prepare` wrote the header, ran the checks, decided the rules a
+`pubkit audit prepare` wrote the header, ran the checks, decided the rules a
 machine can decide, and listed the evidence for the 14 rules that need
 judgement. Each was judged by reading the code, docs and workflows. The Rust
 changes since `v0.6.2` are all in `src/record.rs`: the accepted range of
 `pub` (now `>=0.1.0, <0.5.0`), with its documentation, refusal message and
 unit test, and #99's `section_tag`, which `Config::parse_all` calls on
 `release.json`'s `tag`, with its own unit test. The rest is
-`.github/workflows/release.yml` (#100), the README and generated pubrules files
+`.github/workflows/release.yml` (#100), the README and generated pubkit files
 from the 0.34.0 to 0.37.0 bumps. Every other judged rule about the code reads
 as it did for 0.6.2.
 
@@ -136,5 +136,5 @@ None.
 - **`make fuzz-smoke`:** CI runs it in the merge queue and on main.
 - **docs.rs build and `cargo test --doc`:** not applicable to a binary-only
   crate (§9).
-- **`pubrules audit draft`:** not used. The judged rules were reviewed by
+- **`pubkit audit draft`:** not used. The judged rules were reviewed by
   Claude Code.
