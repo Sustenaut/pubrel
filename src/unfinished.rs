@@ -17,22 +17,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-fn git(root: &Path, args: &[&str]) -> Result<String, String> {
-    let out = Command::new("git")
-        .args(args)
-        .current_dir(root)
-        .output()
-        .map_err(|e| format!("cannot run git: {e}"))?;
-    if out.status.success() {
-        Ok(String::from_utf8_lossy(&out.stdout).trim().to_owned())
-    } else {
-        Err(format!(
-            "git {} failed: {}",
-            args.join(" "),
-            String::from_utf8_lossy(&out.stderr).trim()
-        ))
-    }
-}
+use crate::withdraw::git;
 
 /// The lock file of the clone at `root`, in its git directory.
 fn lock_path(root: &Path) -> Result<PathBuf, String> {
