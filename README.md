@@ -71,6 +71,7 @@ deletes it. Reading it will be dropped in a later release.
 | `prepare [--no-pr]` | Cuts a release: publishes the package publet, commits on a `release/` branch, and opens a pull request. `--no-pr` stops after the commit. |
 | `prepare --all [--no-pr]` | Cuts one release of every package with unreleased changes, in one pull request, in dependency order. See [Releasing several packages at once](#releasing-several-packages-at-once). |
 | `withdraw PR\|BRANCH` | After a release's pull request is closed unmerged: keeps `pub` from publishing its objects again. See [Withdrawing a release](#withdrawing-a-release). |
+| `withdraw --unfinished` | Undoes a `prepare` that was stopped before it committed. See [A prepare that does not finish](#a-prepare-that-does-not-finish). |
 | `changelog` | Regenerates each package's changelog from its package publet. |
 | `tag` | For CI on main: for each package whose manifest version is published and not yet tagged, creates the tag and the GitHub release, then refreshes jsDelivr for a package that lists `jsdelivr` files. |
 | `--version` (or `version`) | Prints `pubrel X.Y.Z`. |
@@ -132,6 +133,29 @@ this clone, unless it is a fork's, so the next release can use the name. As a ba
 `prepare` and `check` refuse a release that carries records naming any
 other commit, and `prepare` says so when a release cut again unchanged
 reproduces a withdrawn object.
+
+### A prepare that does not finish
+
+`prepare` changes the tree before it commits: the package publet, the
+version, the lock, the unreleased changes it folds in, and the objects
+`pub` exports. A step that fails before the commit undoes all of that: the
+index and tracked files as the commit it started from has them, the
+untracked files under each corpus removed, the release branch deleted, and
+the checkout back where it was. `.draft-discards` and `corpus/.publet/` are
+ignored by git, so they stay. A prepare that was killed leaves its changes;
+`pubrel withdraw --unfinished` undoes them the same way, on the release
+branch it made or wherever it stopped before making one.
+
+`pub`'s store keeps what an unfinished attempt published. Cut again the same
+day from the same commit, the release reproduces those records and carries
+them as its own. Cut on another day, the attempt's records differ: `prepare`
+lists them in `corpus/.draft-discards`, undoes itself, and says to prepare
+again, so the release carries only its own records.
+
+One prepare runs in a checkout at a time: it holds a lock in the clone's git
+directory (`pubrel-prepare.lock`, which `git status` never shows), and a
+second `prepare`, or `withdraw --unfinished`, stops while the first runs. A
+lock whose process has ended does not count.
 
 A release may open with a summary, set by `pubrel summary`: a paragraph,
 in prose, of what the release is about. It is published as a `summary`

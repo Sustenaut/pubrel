@@ -1,0 +1,4 @@
+{
+  "category": "fixed",
+  "change": "prepare lists records an unfinished attempt left from the same commit in .draft-discards, so a release carries only its own"
+}

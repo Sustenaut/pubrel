@@ -24,6 +24,7 @@ scenarios("../features/api.feature")
 scenarios("../features/summary.feature")
 scenarios("../features/cli.feature")
 scenarios("../features/withdraw.feature")
+scenarios("../features/unfinished.feature")
 scenarios("../features/fragments.feature")
 
 
@@ -1007,3 +1008,74 @@ def release_only_deletes(pkg):
 @then("the pubrel 0.5 unreleased list is gone")
 def legacy_gone(pkg):
     assert not (pkg.root / "corpus" / "publets" / "pkg.demo" / "unreleased.json").exists()
+
+
+# --- A prepare that does not finish (unfinished.feature) -------------------
+
+
+@given("git refuses commits")
+def refuse_commits(pkg):
+    hook = pkg.root / ".git" / "hooks" / "pre-commit"
+    hook.write_text("#!/bin/sh\necho 'refused by the test' >&2\nexit 1\n")
+    hook.chmod(0o755)
+
+
+@when("git takes commits again")
+@given("git takes commits again")
+def take_commits(pkg):
+    (pkg.root / ".git" / "hooks" / "pre-commit").unlink()
+
+
+@given(parsers.parse('the date is "{day}"'))
+def the_date(pkg, day: str):
+    """`date -u` as prepare runs it: the day, or the moment the lock stamps."""
+    fake = pkg.fake / "date"
+    fake.write_text(f'#!/bin/sh\ncase "$*" in *%H*) echo "{day}T12:00:00Z";; *) echo "{day}";; esac\n')
+    fake.chmod(0o755)
+
+
+@given("a prepare has failed and undone itself")
+def failed_prepare(pkg):
+    done = pkg.pubrel_run("prepare", "--no-pr")
+    assert done.returncode != 0 and "undid the unfinished prepare" in done.stderr, done.stdout + done.stderr
+
+
+@then("the tree is clean, on main, with no release branch for 0.1.1")
+def clean_on_main(pkg):
+    assert pkg.git("status", "--porcelain") == "", pkg.git("status", "--porcelain")
+    assert pkg.git("rev-parse", "--abbrev-ref", "HEAD") == "main"
+    assert pkg.git("branch", "--list", "release/v0.1.1") == ""
+
+
+@then(parsers.parse('CHANGELOG.md mentions "{present}" and not "{absent}"'))
+def changelog_dates(pkg, present: str, absent: str):
+    text = (pkg.root / "CHANGELOG.md").read_text()
+    assert present in text and absent not in text, text
+
+
+@given("a prepare was killed on its release branch after changing the version and exporting an object")
+def killed_prepare(pkg):
+    pkg.git("checkout", "-q", "-b", "release/v0.1.1")
+    manifest = pkg.root / pkg.manifest
+    manifest.write_text(manifest.read_text().replace('"0.1.0"', '"0.1.1"'))
+    pkg.objects().mkdir(exist_ok=True)
+    (pkg.objects() / "pub_sha2-256_left-by-a-killed-prepare.cbor").write_bytes(b"\x00")
+
+
+def _lock(pkg, pid: int):
+    path = pkg.root / pkg.git("rev-parse", "--git-path", "pubrel-prepare.lock")
+    path.write_text(f"{pid} 2026-01-01T12:00:00Z\n")
+
+
+@given("a prepare is running here")
+def running_prepare(pkg, request):
+    sleeper = subprocess.Popen(["sleep", "60"])
+    request.addfinalizer(sleeper.kill)
+    _lock(pkg, sleeper.pid)
+
+
+@given("a prepare that ended left its lock")
+def stale_lock(pkg):
+    finished = subprocess.Popen(["true"])
+    finished.wait()
+    _lock(pkg, finished.pid)

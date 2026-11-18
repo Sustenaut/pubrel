@@ -172,6 +172,27 @@ pub fn withdraw(cfg: &Config, which: &str) -> Result<String, String> {
     ))
 }
 
+/// List `cids` in `cfg`'s `.draft-discards` under `label`, kept out of git:
+/// what was done, as a phrase.
+///
+/// # Errors
+///
+/// Returns a message if the list or git's exclude file cannot be written.
+pub fn discard(cfg: &Config, label: &str, cids: &[String]) -> Result<String, String> {
+    let root = &cfg.root;
+    let discards = root.join(&cfg.corpus).join(".draft-discards");
+    list_discards(&discards, label, cids)?;
+    let rel = discards
+        .strip_prefix(root)
+        .unwrap_or(&discards)
+        .to_string_lossy()
+        .into_owned();
+    keep_out_of_git(root, &rel)?;
+    Ok(format!(
+        "listed them in {rel}, so pub will not export them again"
+    ))
+}
+
 /// The bytes of the object `cid` in `objects_rel` at `commit`.
 fn object_at(root: &Path, commit: &str, objects_rel: &str, cid: &str) -> Option<Vec<u8>> {
     let path = format!("{objects_rel}/{}.cbor", cid.replace(':', "_"));
