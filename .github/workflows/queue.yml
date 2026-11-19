@@ -11,44 +11,44 @@ permissions:
 jobs:
   gates:
     name: ci
-    uses: Sustenaut/pubrules/.github/workflows/job-rust-gates.yml@2fe559caa00c029d9be864faa7f7cc20cd234d0e # v0.43.0
+    uses: Sustenaut/pubrules/.github/workflows/job-rust-gates.yml@aba4735b621721fe2e1d96f83fcd012bb7244e34 # v0.45.1
     with: {"required": "fmt-check lint doc publish-check"}
 
   test:
     name: ci
     needs: [gates]
-    uses: Sustenaut/pubrules/.github/workflows/job-rust-test.yml@2fe559caa00c029d9be864faa7f7cc20cd234d0e # v0.43.0
+    uses: Sustenaut/pubrules/.github/workflows/job-rust-test.yml@aba4735b621721fe2e1d96f83fcd012bb7244e34 # v0.45.1
 
   functional:
     name: ci
     needs: [gates]
-    uses: Sustenaut/pubrules/.github/workflows/job-rust-functional.yml@2fe559caa00c029d9be864faa7f7cc20cd234d0e # v0.43.0
+    uses: Sustenaut/pubrules/.github/workflows/job-rust-functional.yml@aba4735b621721fe2e1d96f83fcd012bb7244e34 # v0.45.1
     with: {"required": "functional supply-chain-check", "tools": "[{\"crate\": \"publet-cli\", \"git\": \"https://github.com/Sustenaut/publet\", \"tag\": \"v0.4.0\"}]"}
     secrets: { SONAR_TOKEN: '${{ secrets.SONAR_TOKEN }}' }
 
   msrv:
     name: ci
     needs: [gates]
-    uses: Sustenaut/pubrules/.github/workflows/job-rust-msrv.yml@2fe559caa00c029d9be864faa7f7cc20cd234d0e # v0.43.0
+    uses: Sustenaut/pubrules/.github/workflows/job-rust-msrv.yml@aba4735b621721fe2e1d96f83fcd012bb7244e34 # v0.45.1
 
   fuzz:
     name: ci
     needs: [gates]
-    uses: Sustenaut/pubrules/.github/workflows/job-rust-fuzz.yml@2fe559caa00c029d9be864faa7f7cc20cd234d0e # v0.43.0
+    uses: Sustenaut/pubrules/.github/workflows/job-rust-fuzz.yml@aba4735b621721fe2e1d96f83fcd012bb7244e34 # v0.45.1
 
   cross:
     name: ci
     needs: [gates]
-    uses: Sustenaut/pubrules/.github/workflows/job-rust-cross.yml@2fe559caa00c029d9be864faa7f7cc20cd234d0e # v0.43.0
+    uses: Sustenaut/pubrules/.github/workflows/job-rust-cross.yml@aba4735b621721fe2e1d96f83fcd012bb7244e34 # v0.45.1
 
   audit:
     name: ci
-    uses: Sustenaut/pubrules/.github/workflows/job-rust-audit.yml@2fe559caa00c029d9be864faa7f7cc20cd234d0e # v0.43.0
+    uses: Sustenaut/pubrules/.github/workflows/job-rust-audit.yml@aba4735b621721fe2e1d96f83fcd012bb7244e34 # v0.45.1
     with: {"required": "deny vet"}
 
   osv:
     name: ci
-    uses: Sustenaut/pubrules/.github/workflows/job-osv.yml@2fe559caa00c029d9be864faa7f7cc20cd234d0e # v0.43.0
+    uses: Sustenaut/pubrules/.github/workflows/job-osv.yml@aba4735b621721fe2e1d96f83fcd012bb7244e34 # v0.45.1
 
   # The one check a ruleset requires: it passes only when every job
   # above succeeded. None of them is ever skipped for not being asked for.
