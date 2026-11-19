@@ -190,8 +190,11 @@ class Package:
     def cut(self, package: str | None = None) -> str:
         """Cut a release on its branch, as `prepare` does; return the branch."""
         named = ["--package", package] if package else []
-        self.ok(str(self.pubrel), "prepare", "--no-pr", *named)
-        self.last_branch = self.git("rev-parse", "--abbrev-ref", "HEAD")
+        done = self.ok(str(self.pubrel), "prepare", "--no-pr", *named)
+        # prepare cuts it in a worktree of its own and leaves this checkout
+        # where it was: the branch it committed on, checked out here.
+        self.last_branch = re.search(r"committed on (\S+);", done.stdout).group(1)
+        self.git("checkout", "-q", self.last_branch)
         return self.last_branch
 
     def release(self, package: str | None = None):

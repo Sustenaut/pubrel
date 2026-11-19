@@ -20,6 +20,7 @@ use crate::version::{self, Version};
 /// its own manifest, code paths, package publet and tag prefix. The corpus
 /// and the signing key are the repository's, shared unless a package names
 /// its own.
+#[derive(Clone)]
 pub struct Config {
     /// The repository's root: the directory holding `release.json`.
     pub root: PathBuf,

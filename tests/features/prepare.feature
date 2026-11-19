@@ -36,10 +36,10 @@ Feature: A release is cut from main as a pull request
     And package-lock.json states "0.1.1" for itself and its root package
     And package-lock.json keeps its dependencies' versions
 
-  Scenario: A dirty tree is refused
+  Scenario: An edit in the checkout is neither released nor touched
     Given a cargo package released at version "0.1.0"
     And the unreleased changes "added" pushed to main
     And an uncommitted edit
-    When I run pubrel prepare
-    Then it fails
-    And stderr mentions "not clean"
+    When the release is cut from main in a worktree, leaving this checkout as it is
+    Then the checkout still has its uncommitted edit
+    And the release branch does not carry the edit

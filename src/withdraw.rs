@@ -42,7 +42,7 @@ pub fn strays<'a>(
         .collect()
 }
 
-fn git(root: &Path, args: &[&str]) -> Result<String, String> {
+pub(crate) fn git(root: &Path, args: &[&str]) -> Result<String, String> {
     let out = Command::new("git")
         .args(args)
         .current_dir(root)
@@ -169,6 +169,27 @@ pub fn withdraw(cfg: &Config, which: &str) -> Result<String, String> {
          pub will not export them again{kept}{removed}",
         added.len(),
         added.len() - fresh
+    ))
+}
+
+/// List `cids` in `cfg`'s `.draft-discards` under `label`, kept out of git:
+/// what was done, as a phrase.
+///
+/// # Errors
+///
+/// Returns a message if the list or git's exclude file cannot be written.
+pub fn discard(cfg: &Config, label: &str, cids: &[String]) -> Result<String, String> {
+    let root = &cfg.root;
+    let discards = root.join(&cfg.corpus).join(".draft-discards");
+    list_discards(&discards, label, cids)?;
+    let rel = discards
+        .strip_prefix(root)
+        .unwrap_or(&discards)
+        .to_string_lossy()
+        .into_owned();
+    keep_out_of_git(root, &rel)?;
+    Ok(format!(
+        "listed them in {rel}, so pub will not export them again"
     ))
 }
 
@@ -306,7 +327,7 @@ fn list_discards(path: &Path, label: &str, cids: &[String]) -> Result<usize, Str
 /// Keep `rel` out of git with the clone's own exclude file, unless it is
 /// already ignored: the list is local, since other clones never held the
 /// objects it names.
-fn keep_out_of_git(root: &Path, rel: &str) -> Result<(), String> {
+pub(crate) fn keep_out_of_git(root: &Path, rel: &str) -> Result<(), String> {
     if git(root, &["check-ignore", "-q", rel]).is_ok() {
         return Ok(());
     }

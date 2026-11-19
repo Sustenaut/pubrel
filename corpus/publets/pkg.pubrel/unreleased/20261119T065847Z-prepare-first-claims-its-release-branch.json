@@ -1,0 +1,4 @@
+{
+  "category": "added",
+  "change": "prepare first claims its release branch on origin with a claim commit of its own, so a second prepare from any clone is refused; withdraw --unfinished clears a killed prepare's worktree, branch and claim"
+}
