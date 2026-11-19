@@ -2,7 +2,7 @@
   "claims": {
     "identity": {
       "class": "archival",
-      "content": "pubrel 0.8.1 is released as v0.8.1 from commit d0e5e38bf318d004db3231e048521e97d86d4461.",
+      "content": "pubrel 0.8.2 is released as v0.8.2 from commit 49540102b1e00a777230098513923fa9b5bbe0a5.",
       "data": {
         "columns": [
           {
@@ -27,25 +27,25 @@
         "rows": [
           [
             "pubrel",
-            "0.8.1",
+            "0.8.2",
             "pubrel --version",
-            "pubrel 0.8.1",
-            "v0.8.1",
-            "d0e5e38bf318d004db3231e048521e97d86d4461"
+            "pubrel 0.8.2",
+            "v0.8.2",
+            "49540102b1e00a777230098513923fa9b5bbe0a5"
           ]
         ]
       },
-      "scope": "the published release v0.8.1 of pubrel",
+      "scope": "the published release v0.8.2 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "d0e5e38bf318d004db3231e048521e97d86d4461"
+          "revision": "49540102b1e00a777230098513923fa9b5bbe0a5"
         }
       ]
     },
     "release": {
       "class": "archival",
-      "content": "pubrel 0.8.1 was released on 2026-11-19 from commit d0e5e38bf318d004db3231e048521e97d86d4461 with these changes.",
+      "content": "pubrel 0.8.2 was released on 2026-11-19 from commit 49540102b1e00a777230098513923fa9b5bbe0a5 with these changes.",
       "data": {
         "columns": [
           {
@@ -57,29 +57,25 @@
         ],
         "rows": [
           [
-            "internal",
-            "the suite's scenarios are Given/When/Then on pubtest's steps"
-          ],
-          [
             "fixed",
-            "prepare's claim commit, pushed to origin, names a random token, its pid and time, and no longer the hostname; the worktree's links have doc comments, and the README's prepare row matches --help"
+            "prepare reaches a parent corpus.json names by a relative path from its worktree, through a link in the prepare's own folder; withdraw --unfinished touches only prepares' folders and the links they recorded, and clears a dead local prepare's claim by its recorded token; the worktree's links are excluded by exact path and never committed"
           ]
         ]
       },
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.8.1 of pubrel",
+      "scope": "the published release v0.8.2 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "d0e5e38bf318d004db3231e048521e97d86d4461"
+          "revision": "49540102b1e00a777230098513923fa9b5bbe0a5"
         }
       ]
     },
     "security": {
       "class": "archival",
-      "content": "pubrel 0.8.1 passed these security checks before release on 2026-11-19.",
+      "content": "pubrel 0.8.2 passed these security checks before release on 2026-11-19.",
       "data": {
         "columns": [
           {
@@ -125,14 +121,14 @@
             "quality audit current",
             ".venv/bin/pubrules audit --check",
             "pubrules 0.45.1",
-            "audit/pubrel-0.8.1.md: pubrel 0.8.1 audited on 2026-11-19 by pubrules audit prepare (pubrules 0.45.1), judged rules reviewed by Claude Code following rust-crate-quality against the current standard (4"
+            "audit/pubrel-0.8.2.md: pubrel 0.8.2 audited on 2026-11-19 by pubrules audit prepare (pubrules 0.45.1), judged rules reviewed by Claude Code following rust-crate-quality against the current standard (4"
           ],
           [
             "fact",
             "RustSec advisory database revision",
             "git -C \"$(ls -d ~/.cargo/advisory-dbs/advisory-db-*/ | head -1)\" log -1 --format='%H (%cs)'",
             "",
-            "7133866a6b44d6d3e1994ae6a48a296553c3c3da (2026-11-19)"
+            "074ea9a7ed619f511b5b7374c7a97e98d1e98be4 (2026-11-19)"
           ],
           [
             "fact",
@@ -146,11 +142,11 @@
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.8.1 of pubrel",
+      "scope": "the published release v0.8.2 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "d0e5e38bf318d004db3231e048521e97d86d4461"
+          "revision": "49540102b1e00a777230098513923fa9b5bbe0a5"
         }
       ]
     }
