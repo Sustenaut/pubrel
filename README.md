@@ -163,9 +163,17 @@ branch is still that claim, so a branch that has gained its release commit
 is never deleted. One that was killed leaves them:
 
 ```sh
-pubrel withdraw --unfinished                   # every worktree, branch and claim stopped prepares left
-pubrel withdraw --unfinished release/v1.2.3    # that release's
+pubrel withdraw --unfinished                   # what stopped prepares in this clone left
+pubrel withdraw --unfinished release/v1.2.3    # that release's worktree, branch and claim
 ```
+
+With no branch it clears only this clone's leftovers: the worktrees of
+prepares no longer running, the branches they were on, and the claims those
+name. A claim on `origin` with no trace here may be another clone's prepare,
+still running, so it is listed with its "Being prepared by HOST, pid N, at
+T" line and kept; name its branch to clear it. Where `pubrel` cannot tell
+whether a prepare's process still runs (Windows), its worktree is kept for
+the branch form.
 
 It refuses a branch that holds a release commit, which is a release to
 withdraw by its pull request. A claim that cannot be pushed for another

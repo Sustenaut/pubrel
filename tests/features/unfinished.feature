@@ -102,3 +102,11 @@ Feature: A prepare claims its release, works in a worktree of its own, and leave
     When I run pubrel prepare
     Then it fails
     And stderr does not mention "is being prepared"
+
+  Scenario: A claim another clone holds survives withdraw --unfinished with no branch
+    Given another clone's prepare holds the claim on "release/v0.1.1"
+    When I run pubrel withdraw "--unfinished"
+    Then it fails
+    And stderr mentions "nothing to undo"
+    And stderr mentions "release/v0.1.1: Being prepared by pubrel 9.9.9 on elsewhere, pid 4242"
+    And origin has the branch "release/v0.1.1"

@@ -1199,3 +1199,14 @@ def origin_unreachable(pkg):
     hook = pkg.remote / "hooks" / "pre-receive"
     hook.write_text("#!/bin/sh\necho 'the remote is unreachable (test)' >&2\nexit 1\n")
     hook.chmod(0o755)
+
+
+@given(parsers.parse('another clone\'s prepare holds the claim on "{branch}"'))
+def other_clone_claim_commit(pkg, branch: str):
+    other = pkg.tmp / "elsewhere"
+    pkg.ok("git", "clone", "-q", str(pkg.remote), str(other))
+    message = (f"pubrel: claim {branch}\n\nBeing prepared by pubrel 9.9.9 on elsewhere, pid 4242, "
+               "at 2026-01-01T12:00:00Z.")
+    claim = pkg.ok("git", "-C", str(other), "commit-tree", "HEAD^{tree}", "-p", "HEAD", "-m", message).stdout.strip()
+    pkg.ok("git", "-C", str(other), "push", "-q", f"--force-with-lease=refs/heads/{branch}:", "origin",
+           f"{claim}:refs/heads/{branch}")

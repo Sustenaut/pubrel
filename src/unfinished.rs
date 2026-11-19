@@ -238,18 +238,30 @@ pub fn end(root: &Path, tree: &Path, made: &Progress, failed: bool) -> Result<St
     ))
 }
 
-/// Whether the process `pid` still runs.
+/// Whether the process `pid` may still run: `kill -0` says, and where it
+/// cannot tell (it does not run, or there is no `kill`), it may.
+#[cfg(unix)]
 fn alive(pid: &str) -> bool {
     std::process::Command::new("kill")
         .args(["-0", pid])
         .output()
-        .is_ok_and(|o| o.status.success())
+        .map_or(true, |o| o.status.success())
+}
+
+/// Whether the process `pid` may still run: Windows has no `kill -0`, and a
+/// worktree whose prepare cannot be told dead is left for the BRANCH form.
+#[cfg(not(unix))]
+fn alive(_pid: &str) -> bool {
+    true
 }
 
 /// `pubrel withdraw --unfinished [BRANCH]`: clear what prepares that were
-/// killed left: the worktrees of prepares no longer running, and, for
-/// `branch` or else every release branch they left, the local branch and
-/// the claim on `origin`, unless it holds a release commit.
+/// killed left. Without `branch`, only what this clone left: the worktrees
+/// of prepares no longer running, the branches they were on, and the claims
+/// those branches name; other claims on `origin` are listed, with who is
+/// preparing them, and kept, since a prepare elsewhere may still run. With
+/// `branch`, that release's worktree, branch and claim. Never a branch that
+/// holds a release commit.
 ///
 /// # Errors
 ///
@@ -274,24 +286,6 @@ pub fn withdraw(root: &Path, branch: Option<&str>) -> Result<String, String> {
             }
             remove(root, &entry.path())?;
             done.push(format!("the worktree {name}"));
-        }
-    }
-    if branch.is_none() {
-        // Claims on origin that no worktree here names: a prepare elsewhere.
-        let heads = git(root, &["ls-remote", "--heads", "origin", "release/*"])?;
-        for line in heads.lines() {
-            let mut parts = line.split_whitespace();
-            let (Some(tip), Some(name)) = (parts.next(), parts.next()) else {
-                continue;
-            };
-            let name = name.trim_start_matches("refs/heads/").to_owned();
-            git(
-                root,
-                &["fetch", "-q", "origin", &format!("refs/heads/{name}")],
-            )?;
-            if is_claim(root, tip) && !branches.contains(&name) {
-                branches.push(name);
-            }
         }
     }
     for branch in &branches {
@@ -324,14 +318,62 @@ pub fn withdraw(root: &Path, branch: Option<&str>) -> Result<String, String> {
             done.push(format!("its claim {branch} on origin"));
         }
     }
+    // Claims no prepare here left: another clone's, maybe still running, or
+    // one this clone made before its branch. Named, never deleted, unless
+    // BRANCH names one.
+    let others = if branch.is_none() {
+        claims_elsewhere(root, &branches)?
+    } else {
+        Vec::new()
+    };
+    let left = if others.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "\nleft alone, as no prepare here left them (name one to clear it: \
+             `pubrel withdraw --unfinished BRANCH`):\n  {}",
+            others.join("\n  ")
+        )
+    };
     if done.is_empty() {
         return Err(match branch {
             Some(b) => format!("nothing to undo: no worktree, branch or claim of {b}"),
-            None => "nothing to undo: no prepare left a worktree, branch or claim".to_owned(),
+            None => {
+                format!("nothing to undo: no prepare here left a worktree, branch or claim{left}")
+            }
         });
     }
     Ok(format!(
-        "undid the unfinished prepare: {} removed",
+        "undid the unfinished prepare: {} removed{left}",
         done.join(", ")
     ))
+}
+
+/// The claims on `origin` other than `ours`, each with who is preparing it.
+fn claims_elsewhere(root: &Path, ours: &[String]) -> Result<Vec<String>, String> {
+    let mut out = Vec::new();
+    let heads = git(root, &["ls-remote", "--heads", "origin", "release/*"])?;
+    for line in heads.lines() {
+        let mut parts = line.split_whitespace();
+        let (Some(tip), Some(name)) = (parts.next(), parts.next()) else {
+            continue;
+        };
+        let name = name.trim_start_matches("refs/heads/");
+        if ours.iter().any(|b| b == name) {
+            continue;
+        }
+        git(
+            root,
+            &["fetch", "-q", "origin", &format!("refs/heads/{name}")],
+        )?;
+        if is_claim(root, tip) {
+            let by = git(root, &["log", "-1", "--format=%b", tip])?;
+            let by = by
+                .lines()
+                .find(|l| l.starts_with("Being prepared by"))
+                .unwrap_or("");
+            out.push(format!("{name}: {}", by.trim_end_matches('.')));
+        }
+    }
+    Ok(out)
 }
