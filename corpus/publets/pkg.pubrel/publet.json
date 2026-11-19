@@ -2,7 +2,7 @@
   "claims": {
     "identity": {
       "class": "archival",
-      "content": "pubrel 0.7.1 is released as v0.7.1 from commit 50c4771b30fd8331493b20d3a8c3f3a34703008e.",
+      "content": "pubrel 0.8.0 is released as v0.8.0 from commit ddaacbb0e5f4ef414689d2a9ebd5496dd57ad01d.",
       "data": {
         "columns": [
           {
@@ -27,25 +27,25 @@
         "rows": [
           [
             "pubrel",
-            "0.7.1",
+            "0.8.0",
             "pubrel --version",
-            "pubrel 0.7.1",
-            "v0.7.1",
-            "50c4771b30fd8331493b20d3a8c3f3a34703008e"
+            "pubrel 0.8.0",
+            "v0.8.0",
+            "ddaacbb0e5f4ef414689d2a9ebd5496dd57ad01d"
           ]
         ]
       },
-      "scope": "the published release v0.7.1 of pubrel",
+      "scope": "the published release v0.8.0 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "50c4771b30fd8331493b20d3a8c3f3a34703008e"
+          "revision": "ddaacbb0e5f4ef414689d2a9ebd5496dd57ad01d"
         }
       ]
     },
     "release": {
       "class": "archival",
-      "content": "pubrel 0.7.1 was released on 2026-11-14 from commit 50c4771b30fd8331493b20d3a8c3f3a34703008e with these changes.",
+      "content": "pubrel 0.8.0 was released on 2026-11-19 from commit ddaacbb0e5f4ef414689d2a9ebd5496dd57ad01d with these changes.",
       "data": {
         "columns": [
           {
@@ -57,25 +57,37 @@
         ],
         "rows": [
           [
+            "changed",
+            "pubkit is now pubrules: when the quality audit check (`pubrules audit --check`) finds no report, pubrel names `./pubrules audit prepare` and reads the pubrules pin from the lock; the repository runs on pubrules 0.43.0"
+          ],
+          [
             "fixed",
-            "release.yml pins actions/cache 6.1.0 and actions/checkout 7.0.1 by commit: both run on Node 24, so a caller's release job no longer warns that Node 20 is deprecated"
+            "prepare lists records an unfinished attempt left from the same commit, and their signatures, in .draft-discards, so a release carries only its own"
+          ],
+          [
+            "changed",
+            "prepare cuts the release from origin/main in a worktree of its own under .git/pubrel/, linking the checkout's pub store and key, so the checkout is never edited"
+          ],
+          [
+            "added",
+            "prepare first claims its release branch on origin with a claim commit of its own, so a second prepare from any clone is refused; withdraw --unfinished clears a killed prepare's worktree, branch and claim"
           ]
         ]
       },
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.7.1 of pubrel",
+      "scope": "the published release v0.8.0 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "50c4771b30fd8331493b20d3a8c3f3a34703008e"
+          "revision": "ddaacbb0e5f4ef414689d2a9ebd5496dd57ad01d"
         }
       ]
     },
     "security": {
       "class": "archival",
-      "content": "pubrel 0.7.1 passed these security checks before release on 2026-11-14.",
+      "content": "pubrel 0.8.0 passed these security checks before release on 2026-11-19.",
       "data": {
         "columns": [
           {
@@ -112,23 +124,23 @@
           [
             "check",
             "supply-chain report current",
-            ".venv/bin/pubkit supply-chain --check pubrel",
-            "pubkit 0.37.1",
+            ".venv/bin/pubrules supply-chain --check pubrel",
+            "pubrules 0.43.0",
             "SUPPLY-CHAIN.md current for pubrel"
           ],
           [
             "check",
             "quality audit current",
-            ".venv/bin/pubkit audit --check",
-            "pubkit 0.37.1",
-            "audit/pubrel-0.7.1.md: pubrel 0.7.1 audited on 2026-11-14 by pubkit audit prepare (pubkit 0.37.1), judged rules reviewed by Claude Code following rust-crate-quality against the current standard (bc3c5"
+            ".venv/bin/pubrules audit --check",
+            "pubrules 0.43.0",
+            "audit/pubrel-0.8.0.md: pubrel 0.8.0 audited on 2026-11-19 by pubrules audit prepare (pubrules 0.43.0), judged rules reviewed by Claude Code following rust-crate-quality against the current standard (4"
           ],
           [
             "fact",
             "RustSec advisory database revision",
             "git -C \"$(ls -d ~/.cargo/advisory-dbs/advisory-db-*/ | head -1)\" log -1 --format='%H (%cs)'",
             "",
-            "4ef2df8e806a65e2f1ecc14f56f51249062b23d6 (2026-11-13)"
+            "472a4c9a785030434f15d7da84964d60fbe789ab (2026-11-18)"
           ],
           [
             "fact",
@@ -142,16 +154,16 @@
       "depends": [
         "#identity"
       ],
-      "scope": "the published release v0.7.1 of pubrel",
+      "scope": "the published release v0.8.0 of pubrel",
       "sources": [
         {
           "ref": "pubrel",
-          "revision": "50c4771b30fd8331493b20d3a8c3f3a34703008e"
+          "revision": "ddaacbb0e5f4ef414689d2a9ebd5496dd57ad01d"
         }
       ]
     }
   },
-  "created": "2026-11-14T00:00:00Z",
+  "created": "2026-11-19T00:00:00Z",
   "sections": [
     {
       "heading": "Identity",
