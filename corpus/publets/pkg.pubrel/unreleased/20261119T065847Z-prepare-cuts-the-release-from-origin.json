@@ -1,4 +1,0 @@
-{
-  "category": "changed",
-  "change": "prepare cuts the release from origin/main in a worktree of its own under .git/pubrel/, linking the checkout's pub store and key, so the checkout is never edited"
-}
