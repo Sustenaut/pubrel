@@ -1,0 +1,4 @@
+{
+  "category": "fixed",
+  "change": "prepare's claim commit, pushed to origin, names a random token, its pid and time, and no longer the hostname; the worktree's links have doc comments, and the README's prepare row matches --help"
+}

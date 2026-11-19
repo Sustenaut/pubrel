@@ -118,5 +118,13 @@ Feature: A prepare claims its release, works in a worktree of its own, and leave
     When I run "pubrel withdraw --unfinished"
     Then it fails
     And stderr mentions "nothing to undo"
-    And stderr mentions "release/v0.1.1: Being prepared by pubrel 9.9.9 on elsewhere, pid 4242"
+    And stderr mentions "release/v0.1.1: Being prepared by pubrel 9.9.9, token 1a2b3c4d, pid 4242"
     And the remote "origin" has the branch "release/v0.1.1"
+
+  Scenario: The claim pushed to origin names a token, its pid and time, and no host
+    Given origin logs each claim pushed to it
+    And git refuses commits
+    When I run "pubrel prepare"
+    Then it fails
+    And the claim origin received says "Being prepared by pubrel", a token, a pid and a time
+    And the claim origin received does not name this machine

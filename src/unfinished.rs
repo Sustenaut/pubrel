@@ -76,11 +76,23 @@ pub fn refuse_existing(root: &Path, branch: &str) -> Result<(), String> {
 /// What the worktree's `pub` workspace links to in the checkout's.
 const SHARED: [&str; 3] = ["objects.redb", "config", "signing.key"];
 
+/// A short random token for a claim, eight hex digits: std's hasher keys
+/// are random per process, so this needs no crate and names nothing about
+/// the machine.
+#[must_use]
+pub fn token() -> String {
+    use std::hash::{BuildHasher as _, Hasher as _};
+    let mut hasher = std::collections::hash_map::RandomState::new().build_hasher();
+    hasher.write_u32(std::process::id());
+    format!("{:08x}", hasher.finish() & 0xffff_ffff)
+}
+
 /// The first line of a claim commit's message.
 const CLAIM: &str = "pubrel: claim ";
 
 /// Claim `branch` on `origin`: a commit of its own on `base`, with
-/// `base`'s tree, naming who claims it and when, pushed with an empty lease.
+/// `base`'s tree, naming its token, pid and time (never the host), pushed
+/// with an empty lease.
 /// A branch already there differs from it, so the push fails; two claims
 /// made at once differ from each other too. The claim commit, returned.
 ///
@@ -171,21 +183,27 @@ pub fn make(root: &Path, corpora: &[String], base: &str) -> Result<PathBuf, Stri
     Ok(path)
 }
 
+/// Link `at` to the file `target`, which need not exist yet.
 #[cfg(unix)]
 fn link(target: &Path, at: &Path) -> Result<(), String> {
     std::os::unix::fs::symlink(target, at).map_err(|e| format!("{}: {e}", at.display()))
 }
 
+/// Link `at` to the file `target`. Windows makes the link only with
+/// Developer Mode or the symlink privilege.
 #[cfg(windows)]
 fn link(target: &Path, at: &Path) -> Result<(), String> {
     std::os::windows::fs::symlink_file(target, at).map_err(|e| format!("{}: {e}", at.display()))
 }
 
+/// Link `at` to the directory `target`: on Unix, a link as any other.
 #[cfg(unix)]
 fn link_dir(target: &Path, at: &Path) -> Result<(), String> {
     link(target, at)
 }
 
+/// Link `at` to the directory `target`: Windows has a kind of link for
+/// directories of its own.
 #[cfg(windows)]
 fn link_dir(target: &Path, at: &Path) -> Result<(), String> {
     std::os::windows::fs::symlink_dir(target, at).map_err(|e| format!("{}: {e}", at.display()))

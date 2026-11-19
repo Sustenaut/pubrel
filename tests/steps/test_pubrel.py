@@ -936,8 +936,32 @@ def origin_unreachable(pkg):
 def other_clone_claim_commit(pkg, branch: str):
     other = pkg.tmp / "elsewhere"
     pkg.ok("git", "clone", "-q", str(pkg.remote), str(other))
-    message = (f"pubrel: claim {branch}\n\nBeing prepared by pubrel 9.9.9 on elsewhere, pid 4242, "
+    message = (f"pubrel: claim {branch}\n\nBeing prepared by pubrel 9.9.9, token 1a2b3c4d, pid 4242, "
                "at 2026-01-01T12:00:00Z.")
     claim = pkg.ok("git", "-C", str(other), "commit-tree", "HEAD^{tree}", "-p", "HEAD", "-m", message).stdout.strip()
     pkg.ok("git", "-C", str(other), "push", "-q", f"--force-with-lease=refs/heads/{branch}:", "origin",
            f"{claim}:refs/heads/{branch}")
+
+
+@given("origin logs each claim pushed to it")
+def origin_logs_claims(pkg):
+    log = pkg.tmp / "claims.log"
+    hook = pkg.remote / "hooks" / "post-receive"
+    hook.write_text("#!/bin/sh\nwhile read old new ref; do\n"
+                    "  case $ref in refs/heads/release/*) [ \"$new\" != 0000000000000000000000000000000000000000 ] && "
+                    f"git log -1 --format=%B \"$new\" >> {log};; esac\ndone\n")
+    hook.chmod(0o755)
+    pkg.claims_log = log
+
+
+@then('the claim origin received says "Being prepared by pubrel", a token, a pid and a time')
+def claim_says(pkg):
+    text = pkg.claims_log.read_text()
+    assert re.search(r"Being prepared by pubrel \S+, token [0-9a-f]{8}, pid \d+, at \d{4}-\d\d-\d\dT", text), text
+
+
+@then("the claim origin received does not name this machine")
+def claim_no_host(pkg):
+    import socket  # noqa: PLC0415
+    text = pkg.claims_log.read_text()
+    assert socket.gethostname() not in text, text

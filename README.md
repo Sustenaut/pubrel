@@ -68,7 +68,7 @@ deletes it. Reading it will be dropped in a later release.
 | `summary [TEXT...]` | Sets the next release's summary, in `unreleased/summary.md`. With no text, prints it. |
 | `next` | Prints the version the unreleased changes imply. |
 | `check BASE` | For CI on a pull request: a change to a `code` path must add a file to `unreleased/`. A release must be exactly the bump its changes require, published, and signed by `key` when `release.json` names one. |
-| `prepare [--no-pr]` | Cuts a release: publishes the package publet, commits on a `release/` branch, and opens a pull request. `--no-pr` stops after the commit. |
+| `prepare [--no-pr]` | Cuts a release from `origin/main` in a worktree of its own, never editing this checkout: claims its `release/` branch on `origin` (a claim commit naming a random token, pid and time), works in `.git/pubrel/`, publishes the package publet, commits there, and opens a pull request. `--no-pr` stops after the commit and claims nothing. See [Where a prepare works](#where-a-prepare-works-and-one-that-does-not-finish). |
 | `prepare --all [--no-pr]` | Cuts one release of every package with unreleased changes, in one pull request, in dependency order. See [Releasing several packages at once](#releasing-several-packages-at-once). |
 | `withdraw PR\|BRANCH` | After a release's pull request is closed unmerged: keeps `pub` from publishing its objects again. See [Withdrawing a release](#withdrawing-a-release). |
 | `withdraw --unfinished [BRANCH]` | Clears what a `prepare` that was killed left: its worktree, its branch and its claim on `origin`. See [Where a prepare works](#where-a-prepare-works-and-one-that-does-not-finish). |
@@ -150,7 +150,8 @@ ends, however it ends, and with it only the links.
 
 Before it changes anything, a prepare that opens a pull request claims its
 release branch on `origin`: a commit of its own on `origin/main`, with
-main's tree, naming the host, pid and time, pushed with an empty lease. A
+main's tree, naming a random token, the pid and the time, never the host,
+since `origin` may be public, pushed with an empty lease. A
 second prepare, from any clone, is refused while the branch is there:
 "release/vX is being prepared, or was cut (branch on origin since T);
 withdraw it first". The release commit replaces the claim, leased on it.
@@ -170,7 +171,7 @@ pubrel withdraw --unfinished release/v1.2.3    # that release's worktree, branch
 With no branch it clears only this clone's leftovers: the worktrees of
 prepares no longer running, the branches they were on, and the claims those
 name. A claim on `origin` with no trace here may be another clone's prepare,
-still running, so it is listed with its "Being prepared by HOST, pid N, at
+still running, so it is listed with its "Being prepared by pubrel X, token T, pid N, at
 T" line and kept; name its branch to clear it. Where `pubrel` cannot tell
 whether a prepare's process still runs (Windows), its worktree is kept for
 the branch form.
