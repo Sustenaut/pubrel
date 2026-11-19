@@ -171,21 +171,27 @@ pub fn make(root: &Path, corpora: &[String], base: &str) -> Result<PathBuf, Stri
     Ok(path)
 }
 
+/// Link `at` to the file `target`, which need not exist yet.
 #[cfg(unix)]
 fn link(target: &Path, at: &Path) -> Result<(), String> {
     std::os::unix::fs::symlink(target, at).map_err(|e| format!("{}: {e}", at.display()))
 }
 
+/// Link `at` to the file `target`. Windows makes the link only with
+/// Developer Mode or the symlink privilege.
 #[cfg(windows)]
 fn link(target: &Path, at: &Path) -> Result<(), String> {
     std::os::windows::fs::symlink_file(target, at).map_err(|e| format!("{}: {e}", at.display()))
 }
 
+/// Link `at` to the directory `target`: on Unix, a link as any other.
 #[cfg(unix)]
 fn link_dir(target: &Path, at: &Path) -> Result<(), String> {
     link(target, at)
 }
 
+/// Link `at` to the directory `target`: Windows has a kind of link for
+/// directories of its own.
 #[cfg(windows)]
 fn link_dir(target: &Path, at: &Path) -> Result<(), String> {
     std::os::windows::fs::symlink_dir(target, at).map_err(|e| format!("{}: {e}", at.display()))
