@@ -772,11 +772,12 @@ fn cut_in(
     let branch = format!("release/{}", tags.join("+"));
     unfinished::refuse_existing(root, &branch)?;
     if open_pr {
+        // The claim is pushed to origin, which may be public: it names no
+        // host, only a token that tells one claim from another.
         let who = format!(
-            "pubrel {} on {}, pid {}, at {}",
+            "pubrel {}, token {}, pid {}, at {}",
             env!("CARGO_PKG_VERSION"),
-            run("hostname", &[], root)
-                .map_or_else(|_| "a host".to_owned(), |h| h.trim().to_owned()),
+            unfinished::token(),
             std::process::id(),
             run("date", &["-u", "+%Y-%m-%dT%H:%M:%SZ"], root)?.trim()
         );

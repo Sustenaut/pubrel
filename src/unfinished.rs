@@ -76,11 +76,23 @@ pub fn refuse_existing(root: &Path, branch: &str) -> Result<(), String> {
 /// What the worktree's `pub` workspace links to in the checkout's.
 const SHARED: [&str; 3] = ["objects.redb", "config", "signing.key"];
 
+/// A short random token for a claim, eight hex digits: std's hasher keys
+/// are random per process, so this needs no crate and names nothing about
+/// the machine.
+#[must_use]
+pub fn token() -> String {
+    use std::hash::{BuildHasher as _, Hasher as _};
+    let mut hasher = std::collections::hash_map::RandomState::new().build_hasher();
+    hasher.write_u32(std::process::id());
+    format!("{:08x}", hasher.finish() & 0xffff_ffff)
+}
+
 /// The first line of a claim commit's message.
 const CLAIM: &str = "pubrel: claim ";
 
 /// Claim `branch` on `origin`: a commit of its own on `base`, with
-/// `base`'s tree, naming who claims it and when, pushed with an empty lease.
+/// `base`'s tree, naming its token, pid and time (never the host), pushed
+/// with an empty lease.
 /// A branch already there differs from it, so the push fails; two claims
 /// made at once differ from each other too. The claim commit, returned.
 ///
