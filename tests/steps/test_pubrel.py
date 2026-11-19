@@ -732,7 +732,7 @@ def plain_branch(pkg, name: str, path: str):
 
 @when(parsers.parse('I run pubrel withdraw "{which}"'), target_fixture="result")
 def run_withdraw(pkg, which: str):
-    return pkg.pubrel_run("withdraw", which)
+    return pkg.pubrel_run("withdraw", *which.split())
 
 
 @when("the release is cut again")
@@ -1125,7 +1125,9 @@ def other_clone_claims(pkg):
 def killed(pkg):
     base = pkg.git("rev-parse", "origin/main")
     pkg.git("push", "-q", "origin", f"{base}:refs/heads/release/v0.1.1")
-    tree = pkg.root / ".git" / "pubrel" / "release-v0.1.1"
+    finished = subprocess.Popen(["true"])
+    finished.wait()  # the killed prepare's pid: one that no longer runs
+    tree = pkg.root / ".git" / "pubrel" / f"prepare-{finished.pid}"
     pkg.git("worktree", "add", "-q", "-b", "release/v0.1.1", str(tree), base)
     (tree / pkg.manifest).write_text((tree / pkg.manifest).read_text().replace('"0.1.0"', '"0.1.1"'))
 
@@ -1167,3 +1169,33 @@ def discards_signatures(pkg):
     kinds = [json.loads(pkg.pub("read", "--json", cid, cwd=pkg.root / "corpus").stdout)["object"]["type"]
              for cid in listed]
     assert "sig" in kinds and "claim.prose" in kinds, kinds
+
+
+@given("main has a change this checkout has not pulled")
+def main_ahead(pkg):
+    pkg.add("fixed", "a fix this checkout never saw")
+    pkg.commit("record a fix")
+    pkg.git("push", "-q", "origin", "main")
+    pkg.git("reset", "-q", "--hard", "HEAD~1")
+
+
+@when("I run pubrel prepare --no-pr twice, back on main between them", target_fixture="result")
+def prepare_twice(pkg):
+    first = pkg.ok(str(pkg.pubrel), "prepare", "--no-pr")
+    pkg.first_branch = re.search(r"committed on (\S+);", first.stdout).group(1)
+    pkg.first_tip = pkg.git("rev-parse", pkg.first_branch)
+    return pkg.pubrel_run("prepare", "--no-pr")
+
+
+@then("the first prepare's release branch is kept, with its release commit")
+def first_kept(pkg):
+    assert pkg.git("rev-parse", pkg.first_branch) == pkg.first_tip
+    assert pkg.git("log", "-1", "--format=%s", pkg.first_branch).startswith("Release ")
+
+
+@given("origin cannot be reached")
+def origin_unreachable(pkg):
+    """Fetches still read origin's objects; pushes fail, as with a network or auth fault."""
+    hook = pkg.remote / "hooks" / "pre-receive"
+    hook.write_text("#!/bin/sh\necho 'the remote is unreachable (test)' >&2\nexit 1\n")
+    hook.chmod(0o755)

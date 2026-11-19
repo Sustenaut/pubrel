@@ -71,7 +71,7 @@ deletes it. Reading it will be dropped in a later release.
 | `prepare [--no-pr]` | Cuts a release: publishes the package publet, commits on a `release/` branch, and opens a pull request. `--no-pr` stops after the commit. |
 | `prepare --all [--no-pr]` | Cuts one release of every package with unreleased changes, in one pull request, in dependency order. See [Releasing several packages at once](#releasing-several-packages-at-once). |
 | `withdraw PR\|BRANCH` | After a release's pull request is closed unmerged: keeps `pub` from publishing its objects again. See [Withdrawing a release](#withdrawing-a-release). |
-| `withdraw --unfinished` | Clears what a `prepare` that was killed left: its worktree, its branch and its claim on `origin`. See [Where a prepare works](#where-a-prepare-works-and-one-that-does-not-finish). |
+| `withdraw --unfinished [BRANCH]` | Clears what a `prepare` that was killed left: its worktree, its branch and its claim on `origin`. See [Where a prepare works](#where-a-prepare-works-and-one-that-does-not-finish). |
 | `changelog` | Regenerates each package's changelog from its package publet. |
 | `tag` | For CI on main: for each package whose manifest version is published and not yet tagged, creates the tag and the GitHub release, then refreshes jsDelivr for a package that lists `jsdelivr` files. |
 | `--version` (or `version`) | Prints `pubrel X.Y.Z`. |
@@ -137,8 +137,9 @@ reproduces a withdrawn object.
 ### Where a prepare works, and one that does not finish
 
 `prepare` cuts the release from `origin/main` in a worktree of its own,
-under the clone's git directory (`.git/pubrel/`), so the checkout you work
-in is never edited: its branch, its uncommitted edits and its files stay as
+under the clone's git directory (`.git/pubrel/prepare-PID`), detached at
+main, and plans the release there, from main's changes, so the checkout you
+work in is never read for the plan and never edited: its branch, its uncommitted edits and its files stay as
 they were. The worktree's `corpus/.publet/` links to the checkout's store
 (`objects.redb`), `config` and signing key, never a copy, with a
 `drafts.json` of its own. `pub`'s store is a redb database: transactional,
@@ -154,16 +155,21 @@ second prepare, from any clone, is refused while the branch is there:
 "release/vX is being prepared, or was cut (branch on origin since T);
 withdraw it first". The release commit replaces the claim, leased on it.
 
-A prepare that fails removes its worktree and its branch, and deletes its
-claim while the branch is still that claim, so a branch that has gained its
-release commit is never deleted. One that was killed leaves them:
+A release branch this clone already has stops a prepare before it changes
+anything: one holding a release commit ("push it or delete it"), or one a
+stopped prepare left. A prepare that fails removes its worktree, and the
+branch it created (never one it found), and deletes its claim while the
+branch is still that claim, so a branch that has gained its release commit
+is never deleted. One that was killed leaves them:
 
 ```sh
-pubrel withdraw --unfinished    # its worktree, its branch, and its claim on origin
+pubrel withdraw --unfinished                   # every worktree, branch and claim stopped prepares left
+pubrel withdraw --unfinished release/v1.2.3    # that release's
 ```
 
 It refuses a branch that holds a release commit, which is a release to
-withdraw by its pull request. `pub`'s store keeps what an unfinished
+withdraw by its pull request. A claim that cannot be pushed for another
+reason, such as the network, says git's own error. `pub`'s store keeps what an unfinished
 attempt published. Cut again the same day from the same commit, the release
 reproduces those records and carries them as its own. Cut on another day,
 the attempt's records, and the signatures of them, differ: `prepare` lists

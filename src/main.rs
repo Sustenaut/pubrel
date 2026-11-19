@@ -50,7 +50,8 @@ usage: pubrel <command> [--package NAME]
                           unreleased changes, in dependency order
   withdraw PR|BRANCH      after closing a release's pull request unmerged:
                           keep pub from publishing its objects again
-  withdraw --unfinished   clear a prepare that was killed: worktree, branch, claim
+  withdraw --unfinished [BRANCH]
+                          clear a prepare that was killed: worktree, branch, claim
   changelog               regenerate each package's changelog from its publet
   tag                     CI on main: tag and release what was published
   --version, version      this pubrel's version
@@ -89,7 +90,7 @@ fn main() -> ExitCode {
             args.iter().any(|a| a == "--all"),
         ),
         Some("withdraw") if args.get(1).is_some_and(|a| a == "--unfinished") => {
-            withdraw_unfinished(package, args.iter().any(|a| a == "--all"))
+            withdraw_unfinished(args.get(2).map(String::as_str))
         }
         Some("withdraw") => args.get(1).map_or_else(
             || Err("usage: pubrel withdraw PR|BRANCH|--unfinished".to_owned()),
@@ -726,35 +727,21 @@ fn prepare(open_pr: bool, package: Option<&str>, every: bool) -> Result<(), Stri
     let base = run("git", &["rev-parse", "origin/main"], &root)?
         .trim()
         .to_owned();
-    // What main releases: its release.json and its unreleased changes, not
-    // this checkout's, which may be anywhere and is never edited.
-    let all = Config::parse_all(
-        &root,
-        &run("git", &["show", "origin/main:release.json"], &root)?,
-        "origin/main:release.json",
-    )?;
-    let corpora = corpora_of(all.iter());
-    let planned = to_release(&all, package, every)?;
-    let tags: Vec<String> = planned.iter().map(|c| c.cfg.git_tag(&c.release)).collect();
-    let branch = format!("release/{}", tags.join("+"));
-    let claimed = if open_pr {
-        let who = format!(
-            "pubrel {} on {}, pid {}, at {}",
-            env!("CARGO_PKG_VERSION"),
-            run("hostname", &[], &root)
-                .map_or_else(|_| "a host".to_owned(), |h| h.trim().to_owned()),
-            std::process::id(),
-            run("date", &["-u", "+%Y-%m-%dT%H:%M:%SZ"], &root)?.trim()
-        );
-        Some(unfinished::claim(&root, &branch, &base, &who)?)
-    } else {
-        None
-    };
-    let made = unfinished::make(&root, &corpora, &branch, &base);
-    let outcome =
-        made.and_then(|tree| cut_in(&tree, package, every, &base, &branch, claimed.as_deref()));
+    // The corpora main's release.json names, to link before anything is
+    // planned: the plan is made in the worktree, from main, not here.
+    let corpora = corpora_of(
+        Config::parse_all(
+            &root,
+            &run("git", &["show", "origin/main:release.json"], &root)?,
+            "origin/main:release.json",
+        )?
+        .iter(),
+    );
+    let tree = unfinished::make(&root, &corpora, &base)?;
+    let mut progress = unfinished::Progress::default();
+    let outcome = cut_in(&root, &tree, package, every, &base, open_pr, &mut progress);
     let failed = outcome.is_err();
-    let ended = unfinished::end(&root, &branch, failed, claimed.as_deref());
+    let ended = unfinished::end(&root, &tree, &progress, failed);
     match (outcome, ended) {
         (Ok(()), Ok(_)) => Ok(()),
         (Ok(()), Err(e)) => Err(format!("released, but its worktree was not removed: {e}")),
@@ -765,20 +752,38 @@ fn prepare(open_pr: bool, package: Option<&str>, every: bool) -> Result<(), Stri
     }
 }
 
-/// Cut the release in the prepare's worktree `tree`, from `base`, on
-/// `branch`: the checks, each package's publet, the commit, and, with a
-/// `claim`, the push that replaces it and the pull request.
+/// Cut the release in the prepare's worktree `tree`, detached at `base`:
+/// the plan from main's tree, the release branch (refused if this clone
+/// already has it), with `open_pr` its claim on `origin`, the checks, each
+/// package's publet, the commit, and the push that replaces the claim and
+/// the pull request. `progress` says what it made, for undoing it.
 fn cut_in(
+    root: &Path,
     tree: &Path,
     package: Option<&str>,
     every: bool,
     base: &str,
-    branch: &str,
-    claim: Option<&str>,
+    open_pr: bool,
+    progress: &mut unfinished::Progress,
 ) -> Result<(), String> {
     let all = Config::read_all(tree)?;
     let cuts = to_release(&all, package, every)?;
     let tags: Vec<String> = cuts.iter().map(|c| c.cfg.git_tag(&c.release)).collect();
+    let branch = format!("release/{}", tags.join("+"));
+    unfinished::refuse_existing(root, &branch)?;
+    if open_pr {
+        let who = format!(
+            "pubrel {} on {}, pid {}, at {}",
+            env!("CARGO_PKG_VERSION"),
+            run("hostname", &[], root)
+                .map_or_else(|_| "a host".to_owned(), |h| h.trim().to_owned()),
+            std::process::id(),
+            run("date", &["-u", "+%Y-%m-%dT%H:%M:%SZ"], root)?.trim()
+        );
+        progress.claim = Some(unfinished::claim(root, &branch, base, &who)?);
+    }
+    run("git", &["switch", "-q", "-c", &branch], tree)?;
+    progress.branch = Some(branch.clone());
     // The checks run on the tree being released, before anything changes:
     // a release is cut only when every package's pass. A non-release pull
     // request has already checked the API, but main may have moved since.
@@ -821,35 +826,20 @@ fn cut_in(
         what.join("; ")
     );
     run("git", &["commit", "-m", &message], tree)?;
-    let Some(claim) = claim else {
+    let Some(claim) = progress.claim.clone() else {
         println!("committed on {branch}; push it and open a PR to release");
         return Ok(());
     };
     let lease = format!("--force-with-lease=refs/heads/{branch}:{claim}");
-    run("git", &["push", "-u", &lease, "origin", branch], tree)?;
+    run("git", &["push", "-u", &lease, "origin", &branch], tree)?;
     open_release_pr(&cuts, &tags, tree)
 }
 
-/// `pubrel withdraw --unfinished`: what a stopped prepare of the release
-/// the unreleased changes make left, cleared.
-fn withdraw_unfinished(package: Option<&str>, every: bool) -> Result<(), String> {
-    let mine = packages()?;
-    let root = mine
-        .first()
-        .map(|c| c.root.clone())
-        .ok_or("release.json lists no package")?;
-    run("git", &["fetch", "origin", "main"], &root)?;
-    let all = Config::parse_all(
-        &root,
-        &run("git", &["show", "origin/main:release.json"], &root)?,
-        "origin/main:release.json",
-    )?;
-    let tags: Vec<String> = to_release(&all, package, every)?
-        .iter()
-        .map(|c| c.cfg.git_tag(&c.release))
-        .collect();
-    unfinished::withdraw(&root, &format!("release/{}", tags.join("+")))
-        .map(|line| println!("{line}"))
+/// `pubrel withdraw --unfinished [BRANCH]`: what stopped prepares left,
+/// cleared: of `branch`, or of every release branch one left.
+fn withdraw_unfinished(branch: Option<&str>) -> Result<(), String> {
+    let root = root()?;
+    unfinished::withdraw(&root, branch).map(|line| println!("{line}"))
 }
 
 /// The corpus directories of `cfgs`, each once.

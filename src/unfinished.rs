@@ -32,15 +32,45 @@ use std::path::{Path, PathBuf};
 
 use crate::withdraw::git;
 
-/// The worktree a prepare of `branch` works in, under the clone's git
-/// directory.
+/// Where prepares make their worktrees: under the clone's git directory.
+fn worktrees(root: &Path) -> Result<PathBuf, String> {
+    Ok(root
+        .join(git(root, &["rev-parse", "--git-common-dir"])?)
+        .join("pubrel"))
+}
+
+/// What a prepare made, for undoing it: its release branch, once it made
+/// it, and its claim on `origin`, once it pushed one.
+#[derive(Default)]
+pub struct Progress {
+    /// The release branch this prepare created in its worktree.
+    pub branch: Option<String>,
+    /// The claim commit this prepare pushed to that branch on `origin`.
+    pub claim: Option<String>,
+}
+
+/// Refuse a release branch this clone already has: one holding a release
+/// commit is a release cut and not pushed; one that does not is left by a
+/// prepare that stopped.
 ///
 /// # Errors
 ///
-/// Returns a message if git cannot say where its directory is.
-pub fn worktree_path(root: &Path, branch: &str) -> Result<PathBuf, String> {
-    let common = root.join(git(root, &["rev-parse", "--git-common-dir"])?);
-    Ok(common.join("pubrel").join(branch.replace('/', "-")))
+/// Returns a message saying which, and what to do.
+pub fn refuse_existing(root: &Path, branch: &str) -> Result<(), String> {
+    let local = format!("refs/heads/{branch}");
+    if git(root, &["show-ref", "--verify", "-q", &local]).is_err() {
+        return Ok(());
+    }
+    let main = git(root, &["rev-parse", "origin/main"])?;
+    let own = git(root, &["rev-list", "--count", &format!("{main}..{local}")])?;
+    if own == "0" || is_claim(root, &local) {
+        return Err(format!(
+            "{branch} exists here, left by a prepare that stopped: `pubrel withdraw --unfinished`"
+        ));
+    }
+    Err(format!(
+        "{branch} exists here, holding a release commit: push it or delete it"
+    ))
 }
 
 /// What the worktree's `pub` workspace links to in the checkout's.
@@ -63,7 +93,11 @@ pub fn claim(root: &Path, branch: &str, base: &str, who: &str) -> Result<String,
     let commit = git(root, &["commit-tree", &tree, "-p", base, "-m", &message])?;
     let lease = format!("--force-with-lease=refs/heads/{branch}:");
     let target = format!("{commit}:refs/heads/{branch}");
-    git(root, &["push", "-q", &lease, "origin", &target]).map_err(|_| {
+    git(root, &["push", "-q", &lease, "origin", &target]).map_err(|failed| {
+        // Not there at all: the push failed for another reason, git's own.
+        if git(root, &["ls-remote", "--heads", "origin", branch]).is_ok_and(|h| h.is_empty()) {
+            return failed;
+        }
         let since = git(
             root,
             &["fetch", "-q", "origin", &format!("refs/heads/{branch}")],
@@ -94,24 +128,20 @@ fn unclaim(root: &Path, branch: &str, claim: &str) -> Result<(), String> {
     git(root, &["push", "-q", &lease, "origin", &target]).map(drop)
 }
 
-/// Make the worktree of `branch` at `base`, on a new local branch, with its
-/// `pub` workspaces linked to the checkout's for each of `corpora`.
+/// Make this prepare's worktree, detached at `base` and named by its
+/// process, with its `pub` workspaces linked to the checkout's for each of
+/// `corpora`.
 ///
 /// # Errors
 ///
-/// Returns a message if the branch or the worktree already exists here
-/// (an unfinished prepare: `pubrel withdraw --unfinished`), or a link
-/// cannot be made.
-pub fn make(root: &Path, corpora: &[String], branch: &str, base: &str) -> Result<PathBuf, String> {
-    let path = worktree_path(root, branch)?;
+/// Returns a message if the worktree cannot be made, or a link cannot.
+pub fn make(root: &Path, corpora: &[String], base: &str) -> Result<PathBuf, String> {
+    let path = worktrees(root)?.join(format!("prepare-{}", std::process::id()));
     if path.exists() {
-        return Err(format!(
-            "{} is left from a prepare that did not finish: `pubrel withdraw --unfinished`",
-            path.display()
-        ));
+        remove(root, &path)?; // a prepare of an earlier process with this pid
     }
     let at = path.to_string_lossy().into_owned();
-    git(root, &["worktree", "add", "-q", "-b", branch, &at, base])?;
+    git(root, &["worktree", "add", "-q", "--detach", &at, base])?;
     for corpus in corpora {
         let mine = root.join(corpus);
         let theirs = path.join(corpus);
@@ -124,10 +154,9 @@ pub fn make(root: &Path, corpora: &[String], branch: &str, base: &str) -> Result
             }
         }
         // Out of git in every tree (the clone's exclude file is shared by its
-        // worktrees), so the link is never committed.
+        // worktrees), so the link is never committed; linked even when it is
+        // not there yet, so a discard written in the worktree lands here.
         crate::withdraw::keep_out_of_git(root, &format!("{corpus}/.draft-discards"))?;
-        // Linked even when it is not there yet: a discard written in the
-        // worktree then lands in this checkout's list.
         link(
             &mine.join(".draft-discards"),
             &theirs.join(".draft-discards"),
@@ -175,87 +204,131 @@ fn remove(root: &Path, path: &Path) -> Result<(), String> {
     git(root, &["worktree", "prune"]).map(drop)
 }
 
-/// End a prepare of `branch`: its worktree removed; and when it failed, its
-/// local branch deleted and its claim on `origin`, if it made one, deleted
-/// while the branch there is still that claim.
+/// End a prepare that worked in `tree`: the worktree removed; and when it
+/// failed, the release branch it created deleted, and its claim on
+/// `origin`, while the branch there is still that claim.
 ///
 /// # Errors
 ///
 /// Returns a message if a step fails, saying which.
-pub fn end(
-    root: &Path,
-    branch: &str,
-    failed: bool,
-    claimed: Option<&str>,
-) -> Result<String, String> {
-    remove(root, &worktree_path(root, branch)?)?;
+pub fn end(root: &Path, tree: &Path, made: &Progress, failed: bool) -> Result<String, String> {
+    remove(root, tree)?;
     if !failed {
         return Ok(String::new());
     }
-    let local = format!("refs/heads/{branch}");
-    if git(root, &["show-ref", "--verify", "-q", &local]).is_ok() {
+    let mut undone = vec!["its worktree".to_owned()];
+    if let Some(branch) = &made.branch {
         git(root, &["branch", "-q", "-D", branch])?;
+        undone.push(format!("its branch {branch}"));
     }
-    if let Some(claim) = claimed {
+    if let (Some(branch), Some(claim)) = (&made.branch, &made.claim) {
         unclaim(root, branch, claim)?;
+        undone.push("its claim on origin".to_owned());
+    } else if let Some(claim) = &made.claim {
+        // Claimed, then failed before making the branch: the claim names it.
+        let subject = git(root, &["log", "-1", "--format=%s", claim])?;
+        if let Some(branch) = subject.strip_prefix(CLAIM) {
+            unclaim(root, branch, claim)?;
+            undone.push("its claim on origin".to_owned());
+        }
     }
     Ok(format!(
-        "undid the unfinished prepare: its worktree and its branch {branch}{} removed; this \
-         checkout was not touched",
-        if claimed.is_some() {
-            ", and its claim on origin,"
-        } else {
-            ""
-        }
+        "undid the unfinished prepare: {} removed; this checkout was not touched",
+        undone.join(", ")
     ))
 }
 
-/// `pubrel withdraw --unfinished`: clear what a prepare that was killed
-/// left for `branch`, the release the unreleased changes make: its
-/// worktree, its local branch and its claim on `origin`.
+/// Whether the process `pid` still runs.
+fn alive(pid: &str) -> bool {
+    std::process::Command::new("kill")
+        .args(["-0", pid])
+        .output()
+        .is_ok_and(|o| o.status.success())
+}
+
+/// `pubrel withdraw --unfinished [BRANCH]`: clear what prepares that were
+/// killed left: the worktrees of prepares no longer running, and, for
+/// `branch` or else every release branch they left, the local branch and
+/// the claim on `origin`, unless it holds a release commit.
 ///
 /// # Errors
 ///
-/// Returns a message if the branch holds a release commit (then it is a
+/// Returns a message if a branch holds a release commit (then it is a
 /// release to withdraw by its pull request), or nothing is left.
-pub fn withdraw(root: &Path, branch: &str) -> Result<String, String> {
+pub fn withdraw(root: &Path, branch: Option<&str>) -> Result<String, String> {
     git(root, &["fetch", "-q", "origin", "main"])?;
     let main = git(root, &["rev-parse", "origin/main"])?;
     let mut done = Vec::new();
-    let leftover = worktree_path(root, branch)?;
-    if leftover.exists() {
-        remove(root, &leftover)?;
-        done.push("its worktree".to_owned());
-    }
-    let local = format!("refs/heads/{branch}");
-    if git(root, &["show-ref", "--verify", "-q", &local]).is_ok() {
-        if git(root, &["rev-list", "--count", &format!("{main}..{local}")])? != "0" {
-            return Err(format!(
-                "{branch} holds a release commit: withdraw it by its branch or pull request"
-            ));
+    let mut branches: Vec<String> = branch.map(str::to_owned).into_iter().collect();
+    if let Ok(entries) = std::fs::read_dir(worktrees(root)?) {
+        for entry in entries.filter_map(Result::ok) {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let pid = name.strip_prefix("prepare-").unwrap_or_default();
+            if !pid.is_empty() && alive(pid) {
+                continue; // a prepare that still runs
+            }
+            let on =
+                git(&entry.path(), &["symbolic-ref", "-q", "--short", "HEAD"]).unwrap_or_default();
+            if branch.is_none() && on.starts_with("release/") {
+                branches.push(on);
+            }
+            remove(root, &entry.path())?;
+            done.push(format!("the worktree {name}"));
         }
-        git(root, &["branch", "-q", "-D", branch])?;
-        done.push(format!("its branch {branch}"));
     }
-    let remote = git(root, &["ls-remote", "--heads", "origin", branch])?;
-    if let Some(tip) = remote.split_whitespace().next() {
-        git(
-            root,
-            &["fetch", "-q", "origin", &format!("refs/heads/{branch}")],
-        )?;
-        if !is_claim(root, tip) && git(root, &["merge-base", "--is-ancestor", tip, &main]).is_err()
-        {
-            return Err(format!(
-                "{branch} on origin holds a release commit: withdraw it by its pull request"
-            ));
+    if branch.is_none() {
+        // Claims on origin that no worktree here names: a prepare elsewhere.
+        let heads = git(root, &["ls-remote", "--heads", "origin", "release/*"])?;
+        for line in heads.lines() {
+            let mut parts = line.split_whitespace();
+            let (Some(tip), Some(name)) = (parts.next(), parts.next()) else {
+                continue;
+            };
+            let name = name.trim_start_matches("refs/heads/").to_owned();
+            git(
+                root,
+                &["fetch", "-q", "origin", &format!("refs/heads/{name}")],
+            )?;
+            if is_claim(root, tip) && !branches.contains(&name) {
+                branches.push(name);
+            }
         }
-        unclaim(root, branch, tip)?;
-        done.push(format!("its claim {branch} on origin"));
+    }
+    for branch in &branches {
+        let local = format!("refs/heads/{branch}");
+        if git(root, &["show-ref", "--verify", "-q", &local]).is_ok() {
+            if !is_claim(root, &local)
+                && git(root, &["rev-list", "--count", &format!("{main}..{local}")])? != "0"
+            {
+                return Err(format!(
+                    "{branch} holds a release commit: withdraw it by its branch or pull request"
+                ));
+            }
+            git(root, &["branch", "-q", "-D", branch])?;
+            done.push(format!("its branch {branch}"));
+        }
+        let remote = git(root, &["ls-remote", "--heads", "origin", branch])?;
+        if let Some(tip) = remote.split_whitespace().next() {
+            git(
+                root,
+                &["fetch", "-q", "origin", &format!("refs/heads/{branch}")],
+            )?;
+            if !is_claim(root, tip)
+                && git(root, &["merge-base", "--is-ancestor", tip, &main]).is_err()
+            {
+                return Err(format!(
+                    "{branch} on origin holds a release commit: withdraw it by its pull request"
+                ));
+            }
+            unclaim(root, branch, tip)?;
+            done.push(format!("its claim {branch} on origin"));
+        }
     }
     if done.is_empty() {
-        return Err(format!(
-            "nothing to undo: no worktree, branch or claim of {branch}"
-        ));
+        return Err(match branch {
+            Some(b) => format!("nothing to undo: no worktree, branch or claim of {b}"),
+            None => "nothing to undo: no prepare left a worktree, branch or claim".to_owned(),
+        });
     }
     Ok(format!(
         "undid the unfinished prepare: {} removed",

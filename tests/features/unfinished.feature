@@ -69,9 +69,36 @@ Feature: A prepare claims its release, works in a worktree of its own, and leave
     When I run pubrel prepare
     Then it succeeds
 
-  Scenario: withdraw --unfinished leaves a claim that holds a release commit
+  Scenario: withdraw --unfinished leaves a branch that holds a release commit
     Given a release is cut and pushed as "release/v0.1.1" without its pull request
     When I run pubrel withdraw "--unfinished"
     Then it fails
+    And stderr mentions "nothing to undo"
+    When I run pubrel withdraw "--unfinished release/v0.1.1"
+    Then it fails
     And stderr mentions "holds a release commit"
     And origin has the branch "release/v0.1.1"
+
+  Scenario: The release is planned from main, not from this checkout
+    Given main has a change this checkout has not pulled
+    When the release is cut again
+    Then CHANGELOG.md mentions "a fix this checkout never saw" and not "2026-01-01"
+
+  Scenario: Two --no-pr prepares in a row keep the first's release branch
+    When I run pubrel prepare --no-pr twice, back on main between them
+    Then it fails
+    And stderr mentions "release/v0.1.1 exists here, holding a release commit: push it or delete it"
+    And the first prepare's release branch is kept, with its release commit
+
+  Scenario: withdraw --unfinished takes the branch to clear
+    Given a prepare was killed after claiming the release and making its worktree
+    When I run pubrel withdraw "--unfinished release/v0.1.1"
+    Then it succeeds
+    And origin has no branch "release/v0.1.1"
+    And no worktree of a prepare is left
+
+  Scenario: A claim that cannot be pushed says git's own reason
+    Given origin cannot be reached
+    When I run pubrel prepare
+    Then it fails
+    And stderr does not mention "is being prepared"
