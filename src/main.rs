@@ -737,11 +737,11 @@ fn prepare(open_pr: bool, package: Option<&str>, every: bool) -> Result<(), Stri
         )?
         .iter(),
     );
-    let tree = unfinished::make(&root, &corpora, &base)?;
-    let mut progress = unfinished::Progress::default();
-    let outcome = cut_in(&root, &tree, package, every, &base, open_pr, &mut progress);
+    let token = unfinished::token();
+    let mut made = unfinished::make(&root, &corpora, &base, &token)?;
+    let outcome = cut_in(&root, package, every, &base, open_pr, &mut made);
     let failed = outcome.is_err();
-    let ended = unfinished::end(&root, &tree, &progress, failed);
+    let ended = unfinished::end(&root, &made, failed);
     match (outcome, ended) {
         (Ok(()), Ok(_)) => Ok(()),
         (Ok(()), Err(e)) => Err(format!("released, but its worktree was not removed: {e}")),
@@ -759,13 +759,13 @@ fn prepare(open_pr: bool, package: Option<&str>, every: bool) -> Result<(), Stri
 /// the pull request. `progress` says what it made, for undoing it.
 fn cut_in(
     root: &Path,
-    tree: &Path,
     package: Option<&str>,
     every: bool,
     base: &str,
     open_pr: bool,
-    progress: &mut unfinished::Progress,
+    made: &mut unfinished::Prepared,
 ) -> Result<(), String> {
+    let tree = &made.record.tree.clone();
     let all = Config::read_all(tree)?;
     let cuts = to_release(&all, package, every)?;
     let tags: Vec<String> = cuts.iter().map(|c| c.cfg.git_tag(&c.release)).collect();
@@ -777,14 +777,21 @@ fn cut_in(
         let who = format!(
             "pubrel {}, token {}, pid {}, at {}",
             env!("CARGO_PKG_VERSION"),
-            unfinished::token(),
+            made.record.token,
             std::process::id(),
             run("date", &["-u", "+%Y-%m-%dT%H:%M:%SZ"], root)?.trim()
         );
-        progress.claim = Some(unfinished::claim(root, &branch, base, &who)?);
+        // Recorded before the push: a prepare killed during it still names
+        // the branch and token its claim carries.
+        made.record.branch = Some(branch.clone());
+        made.save()?;
+        made.record.claim = Some(unfinished::claim(root, &branch, base, &who)?);
+        made.save()?;
     }
+    made.record.branch = Some(branch.clone());
     run("git", &["switch", "-q", "-c", &branch], tree)?;
-    progress.branch = Some(branch.clone());
+    made.record.created = true;
+    made.save()?;
     // The checks run on the tree being released, before anything changes:
     // a release is cut only when every package's pass. A non-release pull
     // request has already checked the API, but main may have moved since.
@@ -817,6 +824,15 @@ fn cut_in(
         cut_one(cut, &all, &date, base, security)?;
     }
     run("git", &["add", "-A"], tree)?;
+    // A release commits files, never a link: the worktree's links are
+    // excluded by their exact paths, and this stops one that is not.
+    let links = unfinished::staged_links(tree)?;
+    if !links.is_empty() {
+        return Err(format!(
+            "the release would commit a link ({}): keep it out of git and prepare again",
+            links.join(", ")
+        ));
+    }
     let what: Vec<String> = cuts
         .iter()
         .map(|c| format!("{} with {} {}", c.cfg.package, c.cfg.name, c.release))
@@ -827,7 +843,7 @@ fn cut_in(
         what.join("; ")
     );
     run("git", &["commit", "-m", &message], tree)?;
-    let Some(claim) = progress.claim.clone() else {
+    let Some(claim) = made.record.claim.clone() else {
         println!("committed on {branch}; push it and open a PR to release");
         return Ok(());
     };
