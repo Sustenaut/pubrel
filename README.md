@@ -137,16 +137,31 @@ reproduces a withdrawn object.
 ### Where a prepare works, and one that does not finish
 
 `prepare` cuts the release from `origin/main` in a worktree of its own,
-under the clone's git directory (`.git/pubrel/prepare-PID`), detached at
-main, and plans the release there, from main's changes, so the checkout you
-work in is never read for the plan and never edited: its branch, its uncommitted edits and its files stay as
-they were. The worktree's `corpus/.publet/` links to the checkout's store
-(`objects.redb`), `config` and signing key, never a copy, with a
-`drafts.json` of its own. `pub`'s store is a redb database: transactional,
-and opened by one process at a time, so a second `pub` waits out an error
-rather than corrupting it. The corpus's `.draft-discards` and the
-checkout's `.venv` are linked too. The worktree is removed when the prepare
-ends, however it ends, and with it only the links.
+under the clone's git directory, detached at main, and plans the release
+there, from main's changes, so the checkout you work in is never read for
+the plan and never edited: its branch, its uncommitted edits and its files
+stay as they were.
+
+Each prepare has a folder of its own, `.git/pubrel/prepare-PID/`. It holds
+the prepare's record, `prepare.json` (its pid, its claim's token, its
+branch, its claim, and every link it made), written before anything else,
+and the worktree, at `tree`. The worktree's `corpus/.publet/` links to the
+checkout's store (`objects.redb`), `config` and signing key, never a copy,
+with a `drafts.json` of its own. `pub`'s store is a redb database:
+transactional, and opened by one process at a time, so a second `pub` waits
+out an error rather than corrupting it. The corpus's `.draft-discards` and
+the checkout's `.venv` are linked too, each kept out of git by its exact
+path in the clone's exclude file, and a release that would commit a link
+anyway is refused.
+
+A parent that `corpus.json` names by a relative path, such as
+`../../publet-corpus`, would resolve from the worktree to a place that does
+not exist. The worktree is nested deep enough (`tree`, or `u/…/tree`) that
+each one lands inside the prepare's folder, where a link to the parent as
+the checkout reaches it sits; `corpus.json` is never edited, and an
+absolute path is used as it is. When the prepare ends, however it ends, the
+worktree and the links its record names are removed, only the links, never
+what they point at, and nothing else under `.git/pubrel/`.
 
 Before it changes anything, a prepare that opens a pull request claims its
 release branch on `origin`: a commit of its own on `origin/main`, with
@@ -168,9 +183,12 @@ pubrel withdraw --unfinished                   # what stopped prepares in this c
 pubrel withdraw --unfinished release/v1.2.3    # that release's worktree, branch and claim
 ```
 
-With no branch it clears only this clone's leftovers: the worktrees of
-prepares no longer running, the branches they were on, and the claims those
-name. A claim on `origin` with no trace here may be another clone's prepare,
+With no branch it clears only this clone's leftovers: the folders of
+prepares no longer running (their worktrees and the links their records
+name, and nothing else under `.git/pubrel/`), the branches they were on,
+and the claims that name their tokens, even once git's own record of the
+worktree is gone, or when the prepare died before it made its branch. A
+claim on `origin` with no trace here may be another clone's prepare,
 still running, so it is listed with its "Being prepared by pubrel X, token T, pid N, at
 T" line and kept; name its branch to clear it. Where `pubrel` cannot tell
 whether a prepare's process still runs (Windows), its worktree is kept for
