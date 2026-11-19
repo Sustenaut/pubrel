@@ -1,0 +1,4 @@
+{
+  "category": "fixed",
+  "change": "prepare reaches a parent corpus.json names by a relative path from its worktree, through a link in the prepare's own folder; withdraw --unfinished touches only prepares' folders and the links they recorded, and clears a dead local prepare's claim by its recorded token; the worktree's links are excluded by exact path and never committed"
+}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
 import subprocess
@@ -965,3 +966,96 @@ def claim_no_host(pkg):
     import socket  # noqa: PLC0415
     text = pkg.claims_log.read_text()
     assert socket.gethostname() not in text, text
+
+
+# --- the worktree's links and records (unfinished.feature) ----------------
+
+
+@given("the corpus has a parent \"base\" at a relative path outside this repository, pushed to main")
+def relative_parent(pkg):
+    import shutil  # noqa: PLC0415
+    base = pkg.tmp / "parents" / "base"
+    base.parent.mkdir(parents=True, exist_ok=True)
+    # A corpus with a generation: this package's own, as its first release left it.
+    shutil.copytree(pkg.root / "corpus", base, symlinks=True)
+    corpus = pkg.root / "corpus"
+    rel = os.path.relpath(base, corpus)
+    assert rel.startswith("../.."), rel
+    config = json.loads((corpus / "corpus.json").read_text())
+    config["parents"] = [{"alias": "base", "path": rel}]
+    (corpus / "corpus.json").write_text(json.dumps(config, indent=2) + "\n")
+    pkg.commit("the corpus has a parent")
+    pkg.git("push", "-q", "origin", "main")
+    pkg.parent_corpus = base
+
+
+@then("the release branch's corpus.json is main's")
+def corpus_json_unchanged(pkg):
+    branch = pkg.git("branch", "--list", "release/*", "--format=%(refname:short)").splitlines()[-1]
+    assert pkg.git("diff", "origin/main", branch, "--", "corpus/corpus.json") == ""
+
+
+@then("the parent corpus is still there")
+def parent_kept(pkg):
+    assert (pkg.parent_corpus / "corpus.json").is_file()
+    assert (pkg.parent_corpus / ".publet" / "objects.redb").is_file()
+
+
+@given(parsers.parse('a link "{name}" made by hand under .git/pubrel/'))
+def hand_link(pkg, name: str):
+    where = pkg.root / ".git" / "pubrel"
+    where.mkdir(parents=True, exist_ok=True)
+    (where / name).symlink_to(pkg.tmp)
+
+
+@then(parsers.parse('the link "{name}" under .git/pubrel/ is still there'))
+def hand_link_kept(pkg, name: str):
+    at = pkg.root / ".git" / "pubrel" / name
+    assert at.is_symlink() and at.resolve() == pkg.tmp.resolve()
+
+
+@given("a prepare here was killed after pushing its claim, before making its branch")
+def killed_after_claim(pkg):
+    """As prepare leaves it then: its folder with a record naming the branch
+    and token, its worktree detached, and its claim on origin, which names
+    the token; no local branch."""
+    finished = subprocess.Popen(["true"])
+    finished.wait()
+    folder = pkg.root / ".git" / "pubrel" / f"prepare-{finished.pid}"
+    tree = folder / "tree"
+    base = pkg.git("rev-parse", "origin/main")
+    folder.mkdir(parents=True)
+    pkg.git("worktree", "add", "-q", "--detach", str(tree), base)
+    message = (f"pubrel: claim release/v0.1.1\n\nBeing prepared by pubrel 0.8.1, token 0badc0de, pid {finished.pid}, "
+               "at 2026-01-01T12:00:00Z.")
+    claim = pkg.git("commit-tree", f"{base}^{{tree}}", "-p", base, "-m", message)
+    pkg.git("push", "-q", "--force-with-lease=refs/heads/release/v0.1.1:", "origin",
+            f"{claim}:refs/heads/release/v0.1.1")
+    (folder / "prepare.json").write_text(json.dumps({
+        "pid": finished.pid, "token": "0badc0de", "tree": str(tree), "links": [],
+        "branch": "release/v0.1.1", "created": False, "claim": None}))
+    # git's own record of the worktree, gone: only pubrel's record names the claim.
+    shutil_rm = __import__("shutil").rmtree
+    shutil_rm(pkg.root / ".git" / "worktrees", ignore_errors=True)
+
+
+@given(".venv/ is in .gitignore and this checkout has a .venv")
+def venv_ignored(pkg):
+    gitignore = pkg.root / ".gitignore"
+    gitignore.write_text(gitignore.read_text() + ".venv/\n")
+    pkg.commit("ignore .venv")
+    pkg.git("push", "-q", "origin", "main")
+    (pkg.root / ".venv" / "bin").mkdir(parents=True, exist_ok=True)
+
+
+@then("the release commit adds no .venv and no link")
+def no_venv_committed(pkg):
+    branch = pkg.git("branch", "--list", "release/*", "--format=%(refname:short)").splitlines()[-1]
+    raw = pkg.git("diff", "--raw", "--no-renames", "origin/main", branch)
+    assert ".venv" not in raw, raw
+    assert " 120000 " not in f" {raw} ", raw
+
+
+@then(parsers.parse('origin has the branch "{branch}"'))
+def origin_has_branch(pkg, branch: str):
+    assert pkg.git("ls-remote", "--heads", "origin", branch) != ""

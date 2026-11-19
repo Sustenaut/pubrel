@@ -128,3 +128,33 @@ Feature: A prepare claims its release, works in a worktree of its own, and leave
     Then it fails
     And the claim origin received says "Being prepared by pubrel", a token, a pid and a time
     And the claim origin received does not name this machine
+
+  Scenario: A parent corpus.json names by a relative path outside the repository is reached from the worktree
+    Given the corpus has a parent "base" at a relative path outside this repository, pushed to main
+    When I run "pubrel prepare"
+    Then it succeeds
+    And the release branch's corpus.json is main's
+    And no worktree of a prepare is left
+    And the parent corpus is still there
+
+  Scenario: A link someone made under .git/pubrel/ survives withdraw --unfinished
+    Given a link "publet-corpus" made by hand under .git/pubrel/
+    And a prepare was killed after claiming the release and making its worktree
+    When I run "pubrel withdraw --unfinished"
+    Then it succeeds
+    And the link "publet-corpus" under .git/pubrel/ is still there
+
+  Scenario: A dead local prepare's claim is cleared with no branch named, another clone's is kept
+    Given another clone's prepare holds the claim on "release/v9.9.9"
+    And a prepare here was killed after pushing its claim, before making its branch
+    When I run "pubrel withdraw --unfinished"
+    Then it succeeds
+    And origin has no branch "release/v0.1.1"
+    And origin has the branch "release/v9.9.9"
+    And no worktree of a prepare is left
+
+  Scenario: With .venv/ in .gitignore, the release commit holds no .venv and no link
+    Given .venv/ is in .gitignore and this checkout has a .venv
+    When I run "pubrel prepare"
+    Then it succeeds
+    And the release commit adds no .venv and no link
