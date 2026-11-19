@@ -3,8 +3,8 @@
   "corpus": {
     "domain": "pub:sha2-256:p4lcyk4y6nkxh45hy5bbytulizhq3m3nsyrn6xgz2vxbog5jeidq",
     "generation": {
-      "cid": "pub:sha2-256:jmy2a5omz4tsxzvtktbkezgsclsnx6v7jjh4qgnje7xsxhvyvsoq",
-      "index": 18
+      "cid": "pub:sha2-256:5d6jttxgg7tmxheqzq366flpedz5tc6je3ruz3y4qrhvhvg5khea",
+      "index": 19
     },
     "imports": {},
     "key": "pub:sha2-256:s4qaxrbb7bjyfk7lffpkg7a44lv2cawzxky6qb3vlcoknetiufxq",
@@ -18,9 +18,9 @@
     ]
   },
   "publets": [
-    {"slug": "pkg.pubrel", "kind": "doc", "tag": "PKG-PUBREL-10-2026", "source": "publets/pkg.pubrel", "cid": "pub:sha2-256:ox3a4qb7pvgahiqbs5q3ibw6nuwvltgfuwpomjbemduurg2i4uhq", "genesis": "pub:sha2-256:jmjdmxh3z4tkpufbxwb4alngilnygxprm55dsaeu6kfchckkyeza", "deps": ["pkg.pubrel#identity", "pkg.pubrel#release", "pkg.pubrel#security"]},
-    {"slug": "pkg.pubrel#identity", "kind": "claim", "source": "publets/pkg.pubrel", "cid": "pub:sha2-256:jgmcmzl7ieicwrnnlzm4ni6pn4rikxntbnq7kbdwdlxt5jn3744q", "genesis": "pub:sha2-256:42jmd6dgzu3u4vegqqn4rmx7egc7gwh7xeqnaewkkor5onxsn4ea", "deps": []},
-    {"slug": "pkg.pubrel#release", "kind": "claim", "source": "publets/pkg.pubrel", "cid": "pub:sha2-256:ry5pwmfpr52klwhdvollfugbtatmtqpka7mh6xvfl4u4is44ecuq", "genesis": "pub:sha2-256:t37ooqouiswnhe5mjojl7dsnhicfcfz456ayewr5njai42fzrbfa", "deps": ["pkg.pubrel#identity"]},
-    {"slug": "pkg.pubrel#security", "kind": "claim", "source": "publets/pkg.pubrel", "cid": "pub:sha2-256:is4yletuar5b6ou444yeh4fv67563jvbqmomu4ucr7yeynpsjnqq", "genesis": "pub:sha2-256:bpvm6emxuplxliyqcgzvqw4b4ywc2dtindwjgbnuewp52xs7sdxq", "deps": ["pkg.pubrel#identity"]}
+    {"slug": "pkg.pubrel", "kind": "doc", "tag": "PKG-PUBREL-10-2026", "source": "publets/pkg.pubrel", "cid": "pub:sha2-256:wfng6dtnlr73wafqo435nc36nqexepzykh7c4xhyan5uodowftzq", "genesis": "pub:sha2-256:jmjdmxh3z4tkpufbxwb4alngilnygxprm55dsaeu6kfchckkyeza", "deps": ["pkg.pubrel#identity", "pkg.pubrel#release", "pkg.pubrel#security"]},
+    {"slug": "pkg.pubrel#identity", "kind": "claim", "source": "publets/pkg.pubrel", "cid": "pub:sha2-256:v5pvu5mn2h3ybcpvtkc6rzgat6jakdqwzngdxkmaz54qkv2idvoa", "genesis": "pub:sha2-256:42jmd6dgzu3u4vegqqn4rmx7egc7gwh7xeqnaewkkor5onxsn4ea", "deps": []},
+    {"slug": "pkg.pubrel#release", "kind": "claim", "source": "publets/pkg.pubrel", "cid": "pub:sha2-256:ona42o4iybpogtri66eijxh72ku3xy7cwzlb4bm7wvgseyy2574a", "genesis": "pub:sha2-256:t37ooqouiswnhe5mjojl7dsnhicfcfz456ayewr5njai42fzrbfa", "deps": ["pkg.pubrel#identity"]},
+    {"slug": "pkg.pubrel#security", "kind": "claim", "source": "publets/pkg.pubrel", "cid": "pub:sha2-256:2xw3yl2ppdkonnqkekxvajiwiysxw4h5t7evttlb7fztbavmim6q", "genesis": "pub:sha2-256:bpvm6emxuplxliyqcgzvqw4b4ywc2dtindwjgbnuewp52xs7sdxq", "deps": ["pkg.pubrel#identity"]}
   ]
 }
