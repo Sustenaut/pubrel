@@ -1,4 +1,4 @@
-# Managed by pubrules 0.43.0: `pubrules sync` rewrites this file, and
+# Managed by pubrules 0.45.1: `pubrules sync` rewrites this file, and
 # `pubrules sync --check` fails when it differs. Include it from the Makefile,
 # and override the variables below there; targets of your own go there too.
 SHELL := /bin/bash
@@ -49,7 +49,7 @@ $(VENV): $(wildcard tests/requirements.lock)
 lock: $(VENV) ## Pin tests/requirements.txt, with hashes, in tests/requirements.lock
 	.venv/bin/pubrules lock
 
-sync-check: $(VENV) ## Fail if pubrules's managed files differ from the pinned version's
+sync-check: $(VENV) ## Fail if pubrules' managed files differ from the pinned version's
 	.venv/bin/pubrules sync --check
 
 fmt: ## Format Rust sources
