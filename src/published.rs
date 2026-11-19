@@ -86,6 +86,14 @@ pub fn content_of(cfg: &Config, cid: &str) -> Option<String> {
     claim_content(&std::fs::read(path_of(cfg, cid)).ok()?)
 }
 
+/// The object a `sig` object `cid` names in the corpus's objects signs:
+/// `None` if it is not a signature there.
+#[must_use]
+pub fn signature_target(cfg: &Config, cid: &str) -> Option<String> {
+    let sig = load(cfg, cid).ok()?;
+    (sig.kind() == "sig").then(|| text(&sig, "target").map(str::to_owned))?
+}
+
 /// Whether the corpus's objects hold a file for `cid`.
 #[must_use]
 pub fn held(cfg: &Config, cid: &str) -> bool {

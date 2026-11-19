@@ -43,13 +43,14 @@ usage: pubrel <command> [--package NAME]
   next                    the version the unreleased changes imply
   check BASE              CI: a code change records what it changes; a release
                           is the bump its changes require, and published
-  prepare [--no-pr]       cut a release: publish the package publet, commit,
+  prepare [--no-pr]       cut a release in a worktree from origin/main: claim
+                          its branch, publish the package publet, commit,
                           and open a release PR
   prepare --all [--no-pr] cut one release PR for every package with
                           unreleased changes, in dependency order
   withdraw PR|BRANCH      after closing a release's pull request unmerged:
                           keep pub from publishing its objects again
-  withdraw --unfinished   undo a prepare that was stopped before it committed
+  withdraw --unfinished   clear a prepare that was killed: worktree, branch, claim
   changelog               regenerate each package's changelog from its publet
   tag                     CI on main: tag and release what was published
   --version, version      this pubrel's version
@@ -88,7 +89,7 @@ fn main() -> ExitCode {
             args.iter().any(|a| a == "--all"),
         ),
         Some("withdraw") if args.get(1).is_some_and(|a| a == "--unfinished") => {
-            withdraw_unfinished()
+            withdraw_unfinished(package, args.iter().any(|a| a == "--all"))
         }
         Some("withdraw") => args.get(1).map_or_else(
             || Err("usage: pubrel withdraw PR|BRANCH|--unfinished".to_owned()),
@@ -137,7 +138,11 @@ fn packages() -> Result<Vec<Config>, String> {
 
 /// The package a command acts on: the one named, or the repository's only one.
 fn config(package: Option<&str>) -> Result<Config, String> {
-    let mut all = packages()?;
+    pick(packages()?, package)
+}
+
+/// The package of `all` that `package` names, or the only one.
+fn pick(mut all: Vec<Config>, package: Option<&str>) -> Result<Config, String> {
     let names = all
         .iter()
         .map(|c| c.name.as_str())
@@ -168,11 +173,13 @@ fn run(program: &str, args: &[&str], dir: &Path) -> Result<String, String> {
     if out.status.success() {
         Ok(String::from_utf8_lossy(&out.stdout).into_owned())
     } else {
-        Err(format!(
-            "{program} {} failed: {}",
-            args.join(" "),
-            String::from_utf8_lossy(&out.stderr).trim()
-        ))
+        let said = String::from_utf8_lossy(&out.stderr).trim().to_owned();
+        let said = if said.is_empty() {
+            String::from_utf8_lossy(&out.stdout).trim().to_owned()
+        } else {
+            said
+        };
+        Err(format!("{program} {} failed: {said}", args.join(" ")))
     }
 }
 
@@ -636,9 +643,9 @@ fn to_release(all: &[Config], package: Option<&str>, every: bool) -> Result<Vec<
                     .to_owned(),
             );
         }
-        packages()?
+        all.to_vec()
     } else {
-        vec![config(package)?]
+        vec![pick(all.to_vec(), package)?]
     };
     let mut cuts = Vec::new();
     let mut idle = Vec::new();
@@ -709,32 +716,69 @@ fn to_release(all: &[Config], package: Option<&str>, every: bool) -> Result<Vec<
 }
 
 fn prepare(open_pr: bool, package: Option<&str>, every: bool) -> Result<(), String> {
-    let all = packages()?;
-    let cuts = to_release(&all, package, every)?;
-    let root = cuts
+    let mine = packages()?;
+    let root = mine
         .first()
-        .map(|c| c.cfg.root.clone())
-        .ok_or("no package to release")?;
+        .map(|c| c.root.clone())
+        .ok_or("release.json lists no package")?;
     record::require_pub()?;
-    let _lock = unfinished::lock(&root, &run("date", &["-u", "+%Y-%m-%dT%H:%M:%SZ"], &root)?)?;
-    if !run("git", &["status", "--porcelain"], &root)?
-        .trim()
-        .is_empty()
-    {
-        return Err(
-            "the tree is not clean; a release is cut from a clean main (a prepare that \
-                    stopped before it committed: `pubrel withdraw --unfinished`)"
-                .to_owned(),
-        );
-    }
     run("git", &["fetch", "origin", "main"], &root)?;
-    let head = run("git", &["rev-parse", "HEAD"], &root)?.trim().to_owned();
-    let main = run("git", &["rev-parse", "origin/main"], &root)?
+    let base = run("git", &["rev-parse", "origin/main"], &root)?
         .trim()
         .to_owned();
-    if head != main {
-        return Err("HEAD is not origin/main; a release is cut from the current main".to_owned());
+    // What main releases: its release.json and its unreleased changes, not
+    // this checkout's, which may be anywhere and is never edited.
+    let all = Config::parse_all(
+        &root,
+        &run("git", &["show", "origin/main:release.json"], &root)?,
+        "origin/main:release.json",
+    )?;
+    let corpora = corpora_of(all.iter());
+    let planned = to_release(&all, package, every)?;
+    let tags: Vec<String> = planned.iter().map(|c| c.cfg.git_tag(&c.release)).collect();
+    let branch = format!("release/{}", tags.join("+"));
+    let claimed = if open_pr {
+        let who = format!(
+            "pubrel {} on {}, pid {}, at {}",
+            env!("CARGO_PKG_VERSION"),
+            run("hostname", &[], &root)
+                .map_or_else(|_| "a host".to_owned(), |h| h.trim().to_owned()),
+            std::process::id(),
+            run("date", &["-u", "+%Y-%m-%dT%H:%M:%SZ"], &root)?.trim()
+        );
+        Some(unfinished::claim(&root, &branch, &base, &who)?)
+    } else {
+        None
+    };
+    let made = unfinished::make(&root, &corpora, &branch, &base);
+    let outcome =
+        made.and_then(|tree| cut_in(&tree, package, every, &base, &branch, claimed.as_deref()));
+    let failed = outcome.is_err();
+    let ended = unfinished::end(&root, &branch, failed, claimed.as_deref());
+    match (outcome, ended) {
+        (Ok(()), Ok(_)) => Ok(()),
+        (Ok(()), Err(e)) => Err(format!("released, but its worktree was not removed: {e}")),
+        (Err(failed), Ok(undone)) => Err(format!("{failed}\n{undone}")),
+        (Err(failed), Err(e)) => Err(format!(
+            "{failed}\nand undoing it failed too ({e}): `pubrel withdraw --unfinished`"
+        )),
     }
+}
+
+/// Cut the release in the prepare's worktree `tree`, from `base`, on
+/// `branch`: the checks, each package's publet, the commit, and, with a
+/// `claim`, the push that replaces it and the pull request.
+fn cut_in(
+    tree: &Path,
+    package: Option<&str>,
+    every: bool,
+    base: &str,
+    branch: &str,
+    claim: Option<&str>,
+) -> Result<(), String> {
+    let all = Config::read_all(tree)?;
+    let cuts = to_release(&all, package, every)?;
+    let tags: Vec<String> = cuts.iter().map(|c| c.cfg.git_tag(&c.release)).collect();
     // The checks run on the tree being released, before anything changes:
     // a release is cut only when every package's pass. A non-release pull
     // request has already checked the API, but main may have moved since.
@@ -745,14 +789,12 @@ fn prepare(open_pr: bool, package: Option<&str>, every: bool) -> Result<(), Stri
         }
         security.push(security::run(
             &cut.cfg.security,
-            &root,
+            tree,
             &cut.cfg.name,
             &cut.release.to_string(),
         )?);
     }
     let date = today()?;
-    let tags: Vec<String> = cuts.iter().map(|c| c.cfg.git_tag(&c.release)).collect();
-    let branch = format!("release/{}", tags.join("+"));
     for cut in &cuts {
         println!(
             "releasing {} {} -> {} from {}",
@@ -761,55 +803,53 @@ fn prepare(open_pr: bool, package: Option<&str>, every: bool) -> Result<(), Stri
                 .as_ref()
                 .map_or_else(|| "(first release)".to_owned(), ToString::to_string),
             cut.release,
-            head.chars().take(12).collect::<String>()
+            base.chars().take(12).collect::<String>()
         );
     }
-    let start = unfinished::start(&root)?;
-    run("git", &["checkout", "-b", &branch], &root)?;
-    let corpora = corpora_of(cuts.iter().map(|c| &c.cfg));
-    println!("on {branch}; a step below that fails undoes this prepare");
-
-    // Until the commit, a step that fails undoes the prepare: nothing of it
-    // is left for the next one to trip on.
-    let cut_all = || -> Result<(), String> {
-        for (cut, security) in cuts.iter().zip(&security) {
-            cut_one(cut, &all, &date, &head, security)?;
-        }
-        run("git", &["add", "-A"], &root)?;
-        let what: Vec<String> = cuts
-            .iter()
-            .map(|c| format!("{} with {} {}", c.cfg.package, c.cfg.name, c.release))
-            .collect();
-        let message = format!(
-            "Release {}\n\nPublishes {}.",
-            tags.join(", "),
-            what.join("; ")
-        );
-        run("git", &["commit", "-m", &message], &root).map(drop)
-    };
-    if let Err(failed) = cut_all() {
-        let undone = unfinished::undo(&root, &corpora, &branch, &start).unwrap_or_else(|e| {
-            format!("and undoing it failed too ({e}): `pubrel withdraw --unfinished`")
-        });
-        return Err(format!("{failed}\n{undone}"));
+    println!("on {branch}, in a worktree of its own; a step that fails undoes this prepare");
+    for (cut, security) in cuts.iter().zip(&security) {
+        cut_one(cut, &all, &date, base, security)?;
     }
-    if !open_pr {
+    run("git", &["add", "-A"], tree)?;
+    let what: Vec<String> = cuts
+        .iter()
+        .map(|c| format!("{} with {} {}", c.cfg.package, c.cfg.name, c.release))
+        .collect();
+    let message = format!(
+        "Release {}\n\nPublishes {}.",
+        tags.join(", "),
+        what.join("; ")
+    );
+    run("git", &["commit", "-m", &message], tree)?;
+    let Some(claim) = claim else {
         println!("committed on {branch}; push it and open a PR to release");
         return Ok(());
-    }
-    run("git", &["push", "-u", "origin", &branch], &root)?;
-    open_release_pr(&cuts, &tags, &root)
+    };
+    let lease = format!("--force-with-lease=refs/heads/{branch}:{claim}");
+    run("git", &["push", "-u", &lease, "origin", branch], tree)?;
+    open_release_pr(&cuts, &tags, tree)
 }
 
-/// `pubrel withdraw --unfinished`, in the repository's root.
-fn withdraw_unfinished() -> Result<(), String> {
-    let all = packages()?;
-    let root = all
+/// `pubrel withdraw --unfinished`: what a stopped prepare of the release
+/// the unreleased changes make left, cleared.
+fn withdraw_unfinished(package: Option<&str>, every: bool) -> Result<(), String> {
+    let mine = packages()?;
+    let root = mine
         .first()
-        .ok_or("release.json lists no package")?
-        .root
-        .clone();
-    unfinished::withdraw(&root, &corpora_of(all.iter())).map(|line| println!("{line}"))
+        .map(|c| c.root.clone())
+        .ok_or("release.json lists no package")?;
+    run("git", &["fetch", "origin", "main"], &root)?;
+    let all = Config::parse_all(
+        &root,
+        &run("git", &["show", "origin/main:release.json"], &root)?,
+        "origin/main:release.json",
+    )?;
+    let tags: Vec<String> = to_release(&all, package, every)?
+        .iter()
+        .map(|c| c.cfg.git_tag(&c.release))
+        .collect();
+    unfinished::withdraw(&root, &format!("release/{}", tags.join("+")))
+        .map(|line| println!("{line}"))
 }
 
 /// The corpus directories of `cfgs`, each once.
@@ -965,16 +1005,25 @@ fn exported_cleanly(cfg: &Config, head: &str) -> Result<(), String> {
         })
         .cloned()
         .collect();
+    // Their signatures too: they sign those records, not this release's.
+    let signatures: Vec<String> = cids
+        .iter()
+        .filter(|cid| {
+            published::signature_target(cfg, cid).is_some_and(|t| unfinished.contains(&t))
+        })
+        .cloned()
+        .collect();
     if !unfinished.is_empty() {
+        let records = unfinished.len();
+        let unfinished = [unfinished, signatures].concat();
         let listed = withdraw::discard(
             cfg,
             &format!("unfinished {}", &head[..12.min(head.len())]),
             &unfinished,
         )?;
         return Err(format!(
-            "pub exported {} record(s) of an unfinished attempt at this release, from this commit; \
-             {listed}: prepare again",
-            unfinished.len()
+            "pub exported {records} record(s), with their signatures, of an unfinished attempt at \
+             this release, from this commit; {listed}: prepare again"
         ));
     }
     let strays = withdraw::strays(cids.iter().map(String::as_str), head, |cid| {

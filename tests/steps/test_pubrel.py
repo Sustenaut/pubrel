@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import os
 import subprocess
 from pathlib import Path
@@ -93,7 +94,9 @@ def run_next(pkg):
 
 @when("I run pubrel prepare", target_fixture="result")
 def run_prepare(pkg):
-    return pkg.pubrel_run("prepare")
+    done = pkg.pubrel_run("prepare")
+    _checkout_cut(pkg, done)
+    return done
 
 
 @when("I run pubrel tag", target_fixture="result")
@@ -129,7 +132,7 @@ def branch_released(pkg, category: str, change: str):
     pkg.add(category, change)
     pkg.commit("record a change")
     pkg.git("push", "-q", "origin", "main")
-    pkg.ok(str(pkg.pubrel), "prepare", "--no-pr")
+    pkg.cut()
 
 
 @when(parsers.parse('the branch\'s manifest is set to "{version}"'))
@@ -654,11 +657,22 @@ def fresh_repo(tmp_path, binary, name: str):
 def has_run(pkg, args: str):
     proc = pkg.pubrel_run(*args.split())
     assert proc.returncode == 0, proc.stdout + proc.stderr
+    _checkout_cut(pkg, proc)
 
 
 @when(parsers.parse('I run pubrel "{args}"'), target_fixture="result")
 def run_pubrel(pkg, args: str):
-    return pkg.pubrel_run(*args.split())
+    done = pkg.pubrel_run(*args.split())
+    _checkout_cut(pkg, done)
+    return done
+
+
+def _checkout_cut(pkg, done):
+    """prepare leaves this checkout where it was: the release it cut, checked
+    out here, for the steps that read it."""
+    cut = re.search(r"^on (\S+), in a worktree", done.stdout, re.M)
+    if done.returncode == 0 and cut:
+        pkg.git("checkout", "-q", cut.group(1))
 
 
 @then(parsers.parse('release.json names the package "{name}" as "{slug}" with a "{kind}" manifest at "{path}"'))
@@ -1040,7 +1054,7 @@ def failed_prepare(pkg):
     assert done.returncode != 0 and "undid the unfinished prepare" in done.stderr, done.stdout + done.stderr
 
 
-@then("the tree is clean, on main, with no release branch for 0.1.1")
+@then("this checkout is clean, on main, with no release branch for 0.1.1")
 def clean_on_main(pkg):
     assert pkg.git("status", "--porcelain") == "", pkg.git("status", "--porcelain")
     assert pkg.git("rev-parse", "--abbrev-ref", "HEAD") == "main"
@@ -1053,29 +1067,103 @@ def changelog_dates(pkg, present: str, absent: str):
     assert present in text and absent not in text, text
 
 
-@given("a prepare was killed on its release branch after changing the version and exporting an object")
-def killed_prepare(pkg):
-    pkg.git("checkout", "-q", "-b", "release/v0.1.1")
-    manifest = pkg.root / pkg.manifest
-    manifest.write_text(manifest.read_text().replace('"0.1.0"', '"0.1.1"'))
-    pkg.objects().mkdir(exist_ok=True)
-    (pkg.objects() / "pub_sha2-256_left-by-a-killed-prepare.cbor").write_bytes(b"\x00")
+def _hashes(pkg) -> dict[str, str]:
+    """Every file of this checkout, outside .git, by its sha256: the pub
+    store and the signing key under corpus/.publet among them."""
+    import hashlib  # noqa: PLC0415
+    out = {}
+    for path in sorted(pkg.root.rglob("*")):
+        rel = path.relative_to(pkg.root)
+        if rel.parts[0] == ".git" or not path.is_file():
+            continue
+        out[str(rel)] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return out
 
 
-def _lock(pkg, pid: int):
-    path = pkg.root / pkg.git("rev-parse", "--git-path", "pubrel-prepare.lock")
-    path.write_text(f"{pid} 2026-01-01T12:00:00Z\n")
+@given("this checkout, its signing key and its store are hashed")
+def hashed(pkg):
+    pkg.hashed = _hashes(pkg)
+    assert "corpus/.publet/signing.key" in pkg.hashed and "corpus/.publet/objects.redb" in pkg.hashed
 
 
-@given("a prepare is running here")
-def running_prepare(pkg, request):
-    sleeper = subprocess.Popen(["sleep", "60"])
-    request.addfinalizer(sleeper.kill)
-    _lock(pkg, sleeper.pid)
+@then("this checkout, its signing key and its store are as they were hashed")
+def as_hashed(pkg):
+    now = _hashes(pkg)
+    # The store is pub's: a prepare adds what it publishes, and keeps all it held.
+    store = "corpus/.publet/objects.redb"
+    assert now.pop(store, None) and pkg.hashed.get(store)
+    before = {k: v for k, v in pkg.hashed.items() if k != store}
+    assert now == before, set(now.items()) ^ set(before.items())
 
 
-@given("a prepare that ended left its lock")
-def stale_lock(pkg):
-    finished = subprocess.Popen(["true"])
-    finished.wait()
-    _lock(pkg, finished.pid)
+@then("no worktree of a prepare is left")
+def no_worktree(pkg):
+    left = pkg.root / ".git" / "pubrel"
+    assert not left.exists() or not any(left.iterdir()), list(left.iterdir())
+    assert "pubrel" not in pkg.git("worktree", "list")
+
+
+@then(parsers.parse('origin has no branch "{branch}"'))
+def origin_lacks(pkg, branch: str):
+    assert pkg.git("ls-remote", "--heads", "origin", branch) == ""
+
+
+@then(parsers.parse('origin has the branch "{branch}"'))
+def origin_has(pkg, branch: str):
+    assert pkg.git("ls-remote", "--heads", "origin", branch) != ""
+
+
+@given("another clone has claimed the release on origin")
+def other_clone_claims(pkg):
+    other = pkg.tmp / "other"
+    pkg.ok("git", "clone", "-q", str(pkg.remote), str(other))
+    pkg.ok("git", "-C", str(other), "push", "-q", "--force-with-lease=refs/heads/release/v0.1.1:",
+           "origin", "HEAD:refs/heads/release/v0.1.1")
+
+
+@given("a prepare was killed after claiming the release and making its worktree")
+def killed(pkg):
+    base = pkg.git("rev-parse", "origin/main")
+    pkg.git("push", "-q", "origin", f"{base}:refs/heads/release/v0.1.1")
+    tree = pkg.root / ".git" / "pubrel" / "release-v0.1.1"
+    pkg.git("worktree", "add", "-q", "-b", "release/v0.1.1", str(tree), base)
+    (tree / pkg.manifest).write_text((tree / pkg.manifest).read_text().replace('"0.1.0"', '"0.1.1"'))
+
+
+@given(parsers.parse('a release is cut and pushed as "{branch}" without its pull request'))
+def cut_and_pushed(pkg, branch: str):
+    pkg.cut()
+    pkg.git("push", "-q", "origin", branch)
+    pkg.git("checkout", "-q", "main")
+
+
+@when("the release is cut from main in a worktree, leaving this checkout as it is")
+def cut_leaving(pkg):
+    done = pkg.ok(str(pkg.pubrel), "prepare", "--no-pr")
+    pkg.cut_output = done.stdout
+
+
+@then("the checkout still has its uncommitted edit")
+def edit_kept(pkg):
+    assert (pkg.root / pkg.source).read_text() == "// edited\n"
+    assert pkg.git("rev-parse", "--abbrev-ref", "HEAD") == "main"
+
+
+@then("the release branch does not carry the edit")
+def edit_not_released(pkg):
+    branch = re.search(r"committed on (\S+);", pkg.cut_output).group(1)
+    assert pkg.git("show", f"{branch}:{pkg.source}") == "// demo"
+
+
+@when("pubrel prepare runs, and nothing here is checked out after it", target_fixture="result")
+def prepare_untouched(pkg):
+    return pkg.pubrel_run("prepare")
+
+
+@then(".draft-discards lists the unfinished attempt's records and a signature of one")
+def discards_signatures(pkg):
+    listed = [line.split("=", 1)[1] for line in (pkg.root / "corpus" / ".draft-discards").read_text().splitlines()
+              if line.startswith("unfinished ")]
+    kinds = [json.loads(pkg.pub("read", "--json", cid, cwd=pkg.root / "corpus").stdout)["object"]["type"]
+             for cid in listed]
+    assert "sig" in kinds and "claim.prose" in kinds, kinds

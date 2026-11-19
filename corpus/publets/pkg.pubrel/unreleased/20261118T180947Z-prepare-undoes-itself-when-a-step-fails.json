@@ -1,4 +1,0 @@
-{
-  "category": "fixed",
-  "change": "prepare undoes itself when a step fails before its commit, and pubrel withdraw --unfinished undoes one that was killed"
-}

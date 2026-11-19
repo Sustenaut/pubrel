@@ -327,7 +327,7 @@ fn list_discards(path: &Path, label: &str, cids: &[String]) -> Result<usize, Str
 /// Keep `rel` out of git with the clone's own exclude file, unless it is
 /// already ignored: the list is local, since other clones never held the
 /// objects it names.
-fn keep_out_of_git(root: &Path, rel: &str) -> Result<(), String> {
+pub(crate) fn keep_out_of_git(root: &Path, rel: &str) -> Result<(), String> {
     if git(root, &["check-ignore", "-q", rel]).is_ok() {
         return Ok(());
     }
