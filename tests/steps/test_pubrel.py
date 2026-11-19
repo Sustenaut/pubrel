@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import json
 import re
-import os
+import shlex
 import subprocess
 from pathlib import Path
 
 from pytest_bdd import given, parsers, scenarios, then, when
 
-from conftest import unreleased
+from pubtest.steps.git import git
+
+from conftest import GH_ANSWER, checkout_cut, unreleased
 
 scenarios("../features/add.feature")
 scenarios("../features/next.feature")
@@ -61,11 +63,6 @@ def unreleased_pushed(pkg, categories: str):
     pkg.git("push", "-q", "origin", "main")
 
 
-@given("an uncommitted edit")
-def uncommitted(pkg):
-    (pkg.root / pkg.source).write_text("// edited\n")
-
-
 @given(parsers.parse('it is released again with "{category}" "{change}"'))
 def released_again(pkg, category: str, change: str):
     pkg.add(category, change)
@@ -80,33 +77,6 @@ def tag_exists(pkg, tag: str):
 
 
 # --- whens -------------------------------------------------------------------
-
-
-@when(parsers.parse('I run pubrel add "{category}" "{change}"'), target_fixture="result")
-def run_add(pkg, category: str, change: str):
-    return pkg.pubrel_run("add", category, change)
-
-
-@when("I run pubrel next", target_fixture="result")
-def run_next(pkg):
-    return pkg.pubrel_run("next")
-
-
-@when("I run pubrel prepare", target_fixture="result")
-def run_prepare(pkg):
-    done = pkg.pubrel_run("prepare")
-    _checkout_cut(pkg, done)
-    return done
-
-
-@when("I run pubrel tag", target_fixture="result")
-def run_tag(pkg):
-    return pkg.pubrel_run("tag")
-
-
-@when("I run pubrel changelog", target_fixture="result")
-def run_changelog(pkg):
-    return pkg.pubrel_run("changelog")
 
 
 @when(parsers.parse('a branch changes "{path}"'))
@@ -189,22 +159,17 @@ def alter(pkg):
     pkg.commit("alter the published identity")
 
 
-@when("I run pubrel check against main", target_fixture="result")
-def run_check(pkg):
-    return pkg.pubrel_run("check", "origin/main")
-
-
 # --- thens -------------------------------------------------------------------
 
 
 @then(parsers.parse('the unreleased list holds "{category}" "{change}"'))
-def holds(pkg, category: str, change: str):
-    assert {"category": category, "change": change} in pkg.unreleased()
+def holds(pubtest_ctx, category: str, change: str):
+    assert {"category": category, "change": change} in unreleased(pubtest_ctx.directory)
 
 
 @then("the unreleased list is empty")
-def empty(pkg):
-    assert pkg.unreleased() == []
+def empty(pubtest_ctx):
+    assert unreleased(pubtest_ctx.directory) == []
 
 
 @then(parsers.parse('the manifest states "{version}"'))
@@ -222,25 +187,6 @@ def package_lock(pkg, version: str):
     pkg.git("push", "-q", "origin", "main")
 
 
-@then(parsers.parse('package-lock.json states "{version}" for itself and its root package'))
-def package_lock_states(pkg, version: str):
-    lock = json.loads((pkg.root / "package-lock.json").read_text())
-    assert lock["version"] == version, lock
-    assert lock["packages"][""]["version"] == version, lock
-
-
-@then("package-lock.json keeps its dependencies' versions")
-def package_lock_keeps(pkg):
-    lock = json.loads((pkg.root / "package-lock.json").read_text())
-    assert lock["packages"]["node_modules/dep"]["version"] == "0.1.0", lock
-
-
-@then(parsers.parse('the manifest pins its internal dependency at "{version}"'))
-def internal_pin(pkg, version: str):
-    text = (pkg.root / pkg.manifest).read_text()
-    assert f'core = {{ path = "crates/core", version = "{version}" }}' in text, text
-
-
 @then(parsers.parse('the published release record states "{version}" with "{category}"'))
 def record_states(pkg, version: str, category: str):
     body = pkg.published("pkg.demo#release")["body"]
@@ -248,29 +194,11 @@ def record_states(pkg, version: str, category: str):
     assert category in [row[0] for row in body["data"]["rows"]]
 
 
-@then(parsers.parse('CHANGELOG.md has a section "{heading}"'))
-def changelog_section(pkg, heading: str):
-    assert heading in (pkg.root / "CHANGELOG.md").read_text()
-
-
-@then(parsers.parse('a pull request "{title}" was requested from "{branch}"'))
-def pr_requested(pkg, title: str, branch: str):
-    calls = pkg.gh_calls()
-    assert any(c[:2] == ["pr", "create"] and title in c for c in calls), calls
-    assert pkg.git("rev-parse", "--abbrev-ref", "HEAD") == branch
-    assert branch in pkg.git("ls-remote", "--heads", "origin")
-
-
 @then(parsers.parse('the tag "{tag}" exists and names the package publet'))
 def tag_names_package(pkg, tag: str):
     message = pkg.git("tag", "-l", "--format=%(contents)", tag)
     assert "package pkg.demo [PKG-DEMOPK-10-2026]" in message, message
     assert tag in pkg.git("ls-remote", "--tags", "origin")
-
-
-@then(parsers.parse('a GitHub release "{tag}" was requested'))
-def release_requested(pkg, tag: str):
-    assert any(c[:3] == ["release", "create", tag] for c in pkg.gh_calls()), pkg.gh_calls()
 
 
 @then("no tag exists")
@@ -341,12 +269,6 @@ def multi_also(pkg, category: str, change: str, name: str):
     pkg.commit("record it too")
 
 
-@when(parsers.parse('I run pubrel add "{category}" "{change}" without naming a package'),
-      target_fixture="result")
-def multi_add_unnamed(pkg, category: str, change: str):
-    return pkg.pubrel_run("add", category, change)
-
-
 @then(parsers.parse('the release branch is "{branch}"'))
 def release_branch(pkg, branch: str):
     assert pkg.last_branch == branch, pkg.last_branch
@@ -357,26 +279,9 @@ def manifest_at(pkg, manifest: str, version: str):
     assert pkg.manifest_version(manifest) == version
 
 
-@then(parsers.parse('the workspace states "{version}"'))
-def workspace_states(pkg, version: str):
-    assert pkg.manifest_version("Cargo.toml") == version
-
-
 @then(parsers.parse('the workspace pins "{path}" at "{version}"'))
 def workspace_pins(pkg, path: str, version: str):
     assert pkg.pinned(path) == version, (pkg.root / "Cargo.toml").read_text()
-
-
-@then(parsers.parse('the tag "{tag}" exists'))
-def tag_present(pkg, tag: str):
-    assert pkg.git("tag", "-l", tag) == tag
-
-
-@then(parsers.parse('"{path}" names the package publet "{slug}"'))
-def changelog_names(pkg, path: str, slug: str):
-    text = (pkg.root / path).read_text()
-    assert f"package publet `{slug}`" in text, text
-    assert "## 0.1.0" in text, text
 
 
 # --- security checks ---------------------------------------------------------
@@ -473,40 +378,26 @@ def records_fact(pkg, name: str, value: str):
 
 # --- API checks ----------------------------------------------------------------
 
-# A stand-in for cargo-semver-checks: it logs its arguments and reports
-# whatever $SEMVER_API says the API did, judged by the release type asked
-# about -- a break passes only a major release, an addition a minor one or
-# more -- as the real tool judges it.
-SEMVER_CHECKS = """#!/bin/sh
-printf '%s\\037' "$@" >> "$SEMVER_LOG"
-printf '\\n' >> "$SEMVER_LOG"
-level=""; prev=""
-for a in "$@"; do [ "$prev" = "--release-type" ] && level="$a"; prev="$a"; done
-api=$(cat "$SEMVER_API" 2>/dev/null)
-if [ "$api" = breaks ] && [ "$level" != major ]; then
-  echo "--- failure function_missing: pub fn removed or renamed ---"; exit 1
-fi
-if [ "$api" = grows ] && [ "$level" = patch ]; then
-  echo "--- warning function_added: pub fn added in a patch release ---"; exit 1
-fi
-echo "     Summary no semver update required"
-"""
+# pubtest's stand-in for cargo-semver-checks reports a break or an addition
+# when told to, judged by the release type asked about -- a break passes
+# only a major release, an addition a minor one or more -- as the real tool
+# judges it. Each release type has a row of its own, so the stand-in answers
+# a type the same however often it is asked.
+SUMMARY = "     Summary no semver update required\n"
+BREAK = "--- failure function_missing: pub fn removed or renamed ---\n"
+ADDITION = "--- warning function_added: pub fn added in a patch release ---\n"
 
 
-def semver_log(pkg) -> list[list[str]]:
-    log = pkg.tmp / "semver.log"
-    if not log.exists():
-        return []
-    return [line.split("\x1f")[:-1] for line in log.read_text().splitlines()]
+def semver_answers(pkg, failing: dict[str, str]) -> None:
+    pkg.standins.add_turns("cargo-semver-checks", [
+        {"args": f"* --release-type {level}", "exit": 1 if level in failing else 0,
+         "stdout": failing.get(level, SUMMARY)}
+        for level in ("major", "minor", "patch")])
 
 
 @given("release.json checks the crate's API")
 def checks_api(pkg):
-    tool = pkg.fake / "cargo-semver-checks"
-    tool.write_text(SEMVER_CHECKS)
-    tool.chmod(0o755)
-    pkg.env["SEMVER_LOG"] = str(pkg.tmp / "semver.log")
-    pkg.env["SEMVER_API"] = str(pkg.tmp / "semver.api")
+    semver_answers(pkg, {})
     path = pkg.root / "release.json"
     config = json.loads(path.read_text())
     config["semver-checks"] = True
@@ -526,12 +417,12 @@ def checked_crate(make_package, version: str):
 
 @given("the API breaks")
 def api_breaks(pkg):
-    (pkg.tmp / "semver.api").write_text("breaks")
+    semver_answers(pkg, {"minor": BREAK, "patch": BREAK})
 
 
 @given("the API grows")
 def api_grows(pkg):
-    (pkg.tmp / "semver.api").write_text("grows")
+    semver_answers(pkg, {"patch": ADDITION})
 
 
 @when(parsers.parse('the tag "{tag}" is deleted'))
@@ -539,35 +430,16 @@ def tag_deleted(pkg, tag: str):
     pkg.git("tag", "-d", tag)
 
 
-def checked(call: list[str], crate: str, tag: str, level: str) -> bool:
-    expected = ["semver-checks", "check-release", "--package", crate,
-                "--baseline-rev", tag, "--release-type", level]
-    return call == expected
-
-
-@then(parsers.parse('the API of "{crate}" was checked against "{tag}" as a "{level}" release'))
-def api_checked(pkg, crate: str, tag: str, level: str):
-    calls = semver_log(pkg)
-    assert any(checked(c, crate, tag, level) for c in calls), calls
-
-
 @then(parsers.parse('the API of "{crate}" was last checked against "{tag}" as a "{level}" release'))
 def api_last_checked(pkg, crate: str, tag: str, level: str):
-    calls = semver_log(pkg)
-    assert calls and checked(calls[-1], crate, tag, level), calls
-
-
-@then(parsers.parse('pubrel next prints "{version}"'))
-def next_prints(pkg, version: str):
-    proc = pkg.pubrel_run("next")
-    assert proc.returncode == 0 and proc.stdout.strip() == version, proc.stdout + proc.stderr
+    """pubtest's `was run with` reads any run; this reads the last."""
+    calls = pkg.standins.runs("cargo-semver-checks")
+    expected = ["semver-checks", "check-release", "--package", crate,
+                "--baseline-rev", tag, "--release-type", level]
+    assert calls and calls[-1] == expected, calls
 
 
 # --- summaries -----------------------------------------------------------------
-
-
-def summary_file(pkg) -> Path:
-    return pkg.root / "corpus" / "publets" / "pkg.demo" / "unreleased" / "summary.md"
 
 
 @given(parsers.parse('the summary "{text}"'))
@@ -575,11 +447,6 @@ def set_summary(pkg, text: str):
     pkg.ok(str(pkg.pubrel), "summary", text)
     pkg.commit("summarise the next release")
     pkg.git("push", "-q", "origin", "main")
-
-
-@when("I run pubrel summary", target_fixture="result")
-def run_summary(pkg):
-    return pkg.pubrel_run("summary")
 
 
 @when("the summary's signatures are removed")
@@ -601,11 +468,10 @@ def changelog_before(pkg, text: str, heading: str):
 
 @then(parsers.parse('the pull request\'s notes begin the release with "{text}"'))
 def notes_begin(pkg, text: str):
-    # The notes span lines, so read the fake gh's log whole: the summary
-    # follows the line naming the commit and release record.
-    log = pkg.gh_log.read_text()
-    assert "pr\x1fcreate" in log, log
-    assert f"`.\n\n{text}\n\n### " in log, log
+    # The notes span lines, which no quoted value can: the summary follows
+    # the line naming the commit and release record.
+    bodies = [c[c.index("--body") + 1] for c in pkg.gh_calls() if c[:2] == ["pr", "create"] and "--body" in c]
+    assert any(f"`.\n\n{text}\n\n### " in body for body in bodies), pkg.gh_calls()
 
 
 @then(parsers.parse('the published summary is "{content}"'))
@@ -613,73 +479,28 @@ def published_summary(pkg, content: str):
     assert pkg.published("pkg.demo#summary")["body"]["content"] == content
 
 
-@then("the unreleased list has no summary")
-def no_unreleased_summary(pkg):
-    assert not summary_file(pkg).exists()
-
-
-@then("no summary is published")
-def no_summary(pkg):
-    lock = json.loads((pkg.root / "corpus" / "corpus.lock").read_text())
-    assert not any(r["slug"] == "pkg.demo#summary" for r in lock["publets"])
-
-
 # --- starting out ----------------------------------------------------------------
 
 
-class FreshRepo:
-    """A git repository with only a Cargo.toml: what `pubrel init` starts from."""
-
-    def __init__(self, root: Path, pubrel: Path):
-        self.root = root
-        self.pubrel = pubrel
-        self.env = dict(os.environ)
-
-    def pubrel_run(self, *args: str) -> subprocess.CompletedProcess:
-        return subprocess.run([str(self.pubrel), *args], cwd=self.root, env=self.env,
-                              capture_output=True, text=True, check=False)
-
-    def unreleased(self, package: str = "pkg.demo") -> list[dict]:
-        return unreleased(self.root, package)
-
-
-@given(parsers.parse('a fresh cargo repository named "{name}"'), target_fixture="pkg")
-def fresh_repo(tmp_path, binary, name: str):
-    root = tmp_path / name
+@given(parsers.parse('a fresh cargo repository named "{name}"'))
+def fresh_repo(pubtest_ctx, monkeypatch, name: str):
+    """A git repository holding only a Cargo.toml, what `pubrel init` starts
+    from, in a directory of that name: init names the package after it. It
+    is the scratch directory from here on."""
+    root = pubtest_ctx.directory / name
     root.mkdir()
-    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=root, check=True)
+    pubtest_ctx.directory = root
+    monkeypatch.chdir(root)
+    git(pubtest_ctx, "init", "-q", "-b", "main")
     (root / "Cargo.toml").write_text(
         f'[package]\nname = "{name}"\nversion = "0.1.0"\nedition = "2024"\n')
-    return FreshRepo(root, binary("pubrel"))
 
 
 @given(parsers.parse('pubrel "{args}" has run'))
-def has_run(pkg, args: str):
-    proc = pkg.pubrel_run(*args.split())
-    assert proc.returncode == 0, proc.stdout + proc.stderr
-    _checkout_cut(pkg, proc)
-
-
-@when(parsers.parse('I run pubrel "{args}"'), target_fixture="result")
-def run_pubrel(pkg, args: str):
-    done = pkg.pubrel_run(*args.split())
-    _checkout_cut(pkg, done)
-    return done
-
-
-def _checkout_cut(pkg, done):
-    """prepare leaves this checkout where it was: the release it cut, checked
-    out here, for the steps that read it."""
-    cut = re.search(r"^on (\S+), in a worktree", done.stdout, re.M)
-    if done.returncode == 0 and cut:
-        pkg.git("checkout", "-q", cut.group(1))
-
-
-@then(parsers.parse('release.json names the package "{name}" as "{slug}" with a "{kind}" manifest at "{path}"'))
-def release_json_names(pkg, name: str, slug: str, kind: str, path: str):
-    config = json.loads((pkg.root / "release.json").read_text())
-    assert (config["name"], config["package"]) == (name, slug), config
-    assert config["manifest"] == {"kind": kind, "path": path}, config
+def has_run(pubtest_ctx, run, binary, args: str):
+    proc = run(binary("pubrel"), *shlex.split(args), cwd=pubtest_ctx.directory)
+    assert proc.code == 0, proc.describe()
+    checkout_cut(pubtest_ctx, proc.code, proc.stdout)
 
 
 @then("it prints this pubrel's version as \"pubrel X.Y.Z\"")
@@ -692,6 +513,7 @@ def prints_version(result):
 
 @then("stderr is empty")
 def stderr_empty(result):
+    """pubtest has `stdout is empty`, not this."""
     assert result.stderr == "", result.stderr
 
 
@@ -717,22 +539,12 @@ def main_moves(pkg, category: str, change: str):
     pkg.git("push", "-q", "origin", "main")
 
 
-@given(parsers.parse('pubrel withdraw "{which}" has run'))
-def withdrawn(pkg, which: str):
-    pkg.ok(str(pkg.pubrel), "withdraw", which)
-
-
 @given(parsers.parse('a branch "{name}" that changes only "{path}"'))
 def plain_branch(pkg, name: str, path: str):
     pkg.git("checkout", "-q", "-b", name)
     (pkg.root / path).write_text("// changed\n")
     pkg.commit("a change")
     pkg.git("checkout", "-q", "main")
-
-
-@when(parsers.parse('I run pubrel withdraw "{which}"'), target_fixture="result")
-def run_withdraw(pkg, which: str):
-    return pkg.pubrel_run("withdraw", *which.split())
 
 
 @when("the release is cut again")
@@ -747,28 +559,9 @@ def add_abandoned(pkg):
     pkg.commit("carry the abandoned release's objects")
 
 
-@then(".draft-discards is ignored by git")
-def discards_ignored(pkg):
-    assert (pkg.root / "corpus" / ".draft-discards").exists()
-    pkg.ok("git", "check-ignore", "-q", "corpus/.draft-discards")
-    assert pkg.git("status", "--porcelain") == ""
-
-
-@then(parsers.parse('CHANGELOG.md has one section for "{version}"'))
-def one_section(pkg, version: str):
-    log = (pkg.root / "CHANGELOG.md").read_text()
-    assert log.count(f"\n## {version} ") == 1, log
-
-
 @then("the release adds no object the abandoned branch added")
 def nothing_abandoned(pkg):
     assert not objects_added(pkg, "HEAD") & objects_added(pkg, "abandoned")
-
-
-@then("pubrel check against main passes on the release branch")
-def release_checks(pkg):
-    proc = pkg.pubrel_run("check", "origin/main")
-    assert proc.returncode == 0, proc.stdout + proc.stderr
 
 
 @given(parsers.parse('the abandoned release is pull request {number:d} from "{branch}", "{state}"'))
@@ -778,19 +571,16 @@ def abandoned_pr(pkg, number: int, branch: str, state: str):
     pkg.git("push", "-q", "origin", f"abandoned:refs/heads/{branch}",
             f"abandoned:refs/pull/{number}/head")
     pkg.git("branch", branch, "abandoned")
-    (pkg.tmp / "gh-pr-view.json").write_text(json.dumps(
-        {"state": state, "headRefName": branch, "isCrossRepository": False}))
+    pkg.standins.add_turns("gh", [
+        {"args": f"pr view {number} *", "stdout": json.dumps(
+            {"state": state, "headRefName": branch, "isCrossRepository": False}) + "\n"},
+        {"args": "*", "stdout": GH_ANSWER}])
 
 
 @then(parsers.parse('neither origin nor this clone has the branch "{branch}"'))
 def branch_gone(pkg, branch: str):
     assert pkg.git("ls-remote", "--heads", "origin", branch) == ""
     assert pkg.git("branch", "--list", branch) == ""
-
-
-@then("there is no .draft-discards")
-def no_discards(pkg):
-    assert not (pkg.root / "corpus" / ".draft-discards").exists()
 
 
 @given(parsers.parse('release.json says a release installs with "{command}"'))
@@ -803,12 +593,6 @@ def install_command(pkg, command: str):
     pkg.git("push", "-q", "origin", "main")
 
 
-@then(parsers.parse('the pull request\'s notes say "{text}"'))
-def notes_say(pkg, text: str):
-    log = pkg.gh_log.read_text()
-    assert "pr\x1fcreate" in log and text in log, log
-
-
 @given(parsers.parse('release.json serves "{path}" through jsDelivr'))
 def serves_through_jsdelivr(pkg, path: str):
     config_path = pkg.root / "release.json"
@@ -817,32 +601,6 @@ def serves_through_jsdelivr(pkg, path: str):
     config_path.write_text(json.dumps(config, indent=2))
     pkg.commit("serve through jsDelivr")
     pkg.git("push", "-q", "origin", "main")
-
-
-def fake_curl(pkg, code: int):
-    curl = pkg.fake / "curl"
-    log = pkg.tmp / "curl.log"
-    curl.write_text(f'#!/bin/sh\nfor a; do last="$a"; done\necho "$last" >> "{log}"\n'
-                    f'[ {code} -eq 0 ] || echo "curl: (22) failed" >&2\nexit {code}\n')
-    curl.chmod(0o755)
-
-
-@given(parsers.parse('the repository is "{repo}" with a recording curl'))
-def recording_curl(pkg, repo: str):
-    pkg.env["GITHUB_REPOSITORY"] = repo
-    fake_curl(pkg, 0)
-
-
-@given(parsers.parse('the repository is "{repo}" with a curl that fails'))
-def failing_curl(pkg, repo: str):
-    pkg.env["GITHUB_REPOSITORY"] = repo
-    fake_curl(pkg, 22)
-
-
-@then(parsers.parse('curl fetched "{url}"'))
-def curl_fetched(pkg, url: str):
-    fetched = (pkg.tmp / "curl.log").read_text().splitlines()
-    assert url in fetched, fetched
 
 
 # --- releasing several packages at once ---------------------------------------
@@ -875,15 +633,16 @@ def multi_record_pushed(pkg, name: str, category: str, change: str):
 
 @given(parsers.parse('a quality audit check that finds no report for "{name}"'))
 def audit_finds_none(pkg, name: str):
-    # pubrules' message when the report is missing, from a `pubrules` that
-    # fails only for that package.
-    fake = pkg.fake / "pubrules"
-    fake.write_text(
-        '#!/bin/sh\nif [ "$PUBREL_PACKAGE" = "' + name + '" ]; then\n'
-        '  echo "pubrules: no audit/$PUBREL_PACKAGE-$PUBREL_VERSION.md: run the '
-        'rust-crate-quality agent" >&2; exit 1\nfi\necho "audited"\n')
-    fake.chmod(0o755)
-    declare(pkg, "checks", {"name": "quality audit current", "run": "pubrules audit --check"})
+    # pubrules' message when the report is missing, from a stand-in
+    # `pubrules` that fails only for that package: the check names the
+    # package from $PUBREL_PACKAGE, which pubrel sets for it.
+    pkg.standins.add_turns("pubrules", [
+        {"args": f"audit --check {package}",
+         "exit": 1 if package == name else 0,
+         "stderr": f"pubrules: no audit/{package}.md: run the rust-crate-quality agent\n" if package == name else "",
+         "stdout": "" if package == name else "audited\n"}
+        for package in ("demo", "demo-algo")])
+    declare(pkg, "checks", {"name": "quality audit current", "run": 'pubrules audit --check "$PUBREL_PACKAGE"'})
 
 
 @when("the release branch is merged into main")
@@ -1019,11 +778,6 @@ def release_only_deletes(pkg):
     assert not unreleased_dir(pkg).exists() or not any(unreleased_dir(pkg).iterdir())
 
 
-@then("the pubrel 0.5 unreleased list is gone")
-def legacy_gone(pkg):
-    assert not (pkg.root / "corpus" / "publets" / "pkg.demo" / "unreleased.json").exists()
-
-
 # --- A prepare that does not finish (unfinished.feature) -------------------
 
 
@@ -1043,28 +797,20 @@ def take_commits(pkg):
 @given(parsers.parse('the date is "{day}"'))
 def the_date(pkg, day: str):
     """`date -u` as prepare runs it: the day, or the moment the lock stamps."""
-    fake = pkg.fake / "date"
+    fake = pkg.standins.bin / "date"
     fake.write_text(f'#!/bin/sh\ncase "$*" in *%H*) echo "{day}T12:00:00Z";; *) echo "{day}";; esac\n')
     fake.chmod(0o755)
 
 
 @given("a prepare has failed and undone itself")
 def failed_prepare(pkg):
-    done = pkg.pubrel_run("prepare", "--no-pr")
+    done = pkg.run(str(pkg.pubrel), "prepare", "--no-pr")
     assert done.returncode != 0 and "undid the unfinished prepare" in done.stderr, done.stdout + done.stderr
 
 
-@then("this checkout is clean, on main, with no release branch for 0.1.1")
-def clean_on_main(pkg):
-    assert pkg.git("status", "--porcelain") == "", pkg.git("status", "--porcelain")
-    assert pkg.git("rev-parse", "--abbrev-ref", "HEAD") == "main"
-    assert pkg.git("branch", "--list", "release/v0.1.1") == ""
-
-
-@then(parsers.parse('CHANGELOG.md mentions "{present}" and not "{absent}"'))
-def changelog_dates(pkg, present: str, absent: str):
-    text = (pkg.root / "CHANGELOG.md").read_text()
-    assert present in text and absent not in text, text
+@then(parsers.parse('this clone has no branch "{branch}"'))
+def clone_lacks(pkg, branch: str):
+    assert pkg.git("branch", "--list", branch) == ""
 
 
 def _hashes(pkg) -> dict[str, str]:
@@ -1108,11 +854,6 @@ def origin_lacks(pkg, branch: str):
     assert pkg.git("ls-remote", "--heads", "origin", branch) == ""
 
 
-@then(parsers.parse('origin has the branch "{branch}"'))
-def origin_has(pkg, branch: str):
-    assert pkg.git("ls-remote", "--heads", "origin", branch) != ""
-
-
 @given("another clone has claimed the release on origin")
 def other_clone_claims(pkg):
     other = pkg.tmp / "other"
@@ -1139,27 +880,18 @@ def cut_and_pushed(pkg, branch: str):
     pkg.git("checkout", "-q", "main")
 
 
-@when("the release is cut from main in a worktree, leaving this checkout as it is")
-def cut_leaving(pkg):
-    done = pkg.ok(str(pkg.pubrel), "prepare", "--no-pr")
-    pkg.cut_output = done.stdout
+@given("nothing is checked out here after a prepare")
+def keep_checkout(pubtest_ctx):
+    """The suite checks out the branch a prepare cut, for the steps that
+    read it (conftest's after-step hook); this scenario reads the checkout
+    as prepare left it."""
+    pubtest_ctx.keep_checkout = True
 
 
-@then("the checkout still has its uncommitted edit")
-def edit_kept(pkg):
-    assert (pkg.root / pkg.source).read_text() == "// edited\n"
-    assert pkg.git("rev-parse", "--abbrev-ref", "HEAD") == "main"
-
-
-@then("the release branch does not carry the edit")
-def edit_not_released(pkg):
-    branch = re.search(r"committed on (\S+);", pkg.cut_output).group(1)
-    assert pkg.git("show", f"{branch}:{pkg.source}") == "// demo"
-
-
-@when("pubrel prepare runs, and nothing here is checked out after it", target_fixture="result")
-def prepare_untouched(pkg):
-    return pkg.pubrel_run("prepare")
+@then(parsers.parse('the release branch it cut has "{path}" holding "{text}"'))
+def cut_branch_holds(pkg, pubtest_ctx, path: str, text: str):
+    branch = re.search(r"committed on (\S+);", pubtest_ctx.outcome.stdout).group(1)
+    assert pkg.git("show", f"{branch}:{path}") == text
 
 
 @then(".draft-discards lists the unfinished attempt's records and a signature of one")
@@ -1179,12 +911,11 @@ def main_ahead(pkg):
     pkg.git("reset", "-q", "--hard", "HEAD~1")
 
 
-@when("I run pubrel prepare --no-pr twice, back on main between them", target_fixture="result")
-def prepare_twice(pkg):
+@given("a release has been cut by a --no-pr prepare, and this checkout is still on main")
+def prepared_once(pkg):
     first = pkg.ok(str(pkg.pubrel), "prepare", "--no-pr")
     pkg.first_branch = re.search(r"committed on (\S+);", first.stdout).group(1)
     pkg.first_tip = pkg.git("rev-parse", pkg.first_branch)
-    return pkg.pubrel_run("prepare", "--no-pr")
 
 
 @then("the first prepare's release branch is kept, with its release commit")

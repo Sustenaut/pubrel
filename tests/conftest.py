@@ -1,14 +1,15 @@
-"""Fixtures for pubrel's functional suite.
+"""Fixtures for pubrel's functional suite, on pubtest's steps.
 
-Every scenario drives the built `pubrel` as a user would, against a
-throwaway git repository with a bare "remote", a real corpus and key made
-by a real released `pub`, and a fake `gh` that records what it was asked to
-do -- so nothing here touches GitHub, and nothing imports the Rust.
+Every scenario drives the built `pubrel` as a user would, through pubtest's
+`I run`, in pubtest's scratch directory: a throwaway git repository with a
+bare "remote", a real corpus and key made by a real released `pub`, and
+pubtest's stand-in `gh`, which records what it was asked to do -- so
+nothing here touches GitHub, and nothing imports the Rust.
 
-Binaries are resolved by pubrules' `binary` fixture, from PUBREL_BIN_DIR
-(pubrel) and PUB_BIN_DIR (pub), so another implementation runs this suite
-by setting one variable. The steps that judge a result (`it succeeds`, `it
-prints "..."`) are pubrules' too.
+pubrel is pubtest's program under test, from PUBREL_BIN_DIR, and `pub` is
+found on PUB_BIN_DIR, so another implementation runs this suite by setting
+one variable. What judges a result is pubtest's steps, and the domain
+Thens in steps/test_pubrel.py where pubtest has none.
 """
 
 from __future__ import annotations
@@ -16,18 +17,14 @@ from __future__ import annotations
 import json
 import os
 import re
-import stat
 import subprocess
 from pathlib import Path
 
 import pytest
+from pubtest.steps.standins import standins
 
-GH = """#!/bin/sh
-printf '%s\\037' "$@" >> "$GH_LOG"
-printf '\\n' >> "$GH_LOG"
-if [ "$1 $2" = "pr view" ]; then cat "$GH_PR_VIEW"; exit; fi
-echo "https://example.org/fake/1"
-"""
+# What `gh` answers when no scenario says otherwise: a pull request's URL.
+GH_ANSWER = "https://example.org/fake/1\n"
 
 MANIFESTS = {
     "cargo": ("cargo-package", "Cargo.toml",
@@ -69,32 +66,28 @@ def unreleased(root: Path, package: str = "pkg.demo") -> list[dict]:
 class Package:
     """A package repository under test."""
 
-    def __init__(self, tmp: Path, kind: str, version: str, pubrel: Path, pub_dir: Path):
+    def __init__(self, root: Path, tmp: Path, kind: str, version: str, pubrel: Path, pub_dir: Path,
+                 pubtest_ctx, monkeypatch):
         self.tmp = tmp
         self.kind = kind
         self.remote = tmp / "remote.git"
-        self.root = tmp / "work"
-        self.fake = tmp / "fakebin"
-        self.gh_log = tmp / "gh.log"
+        self.root = root
         self.pubrel = pubrel
-        self.env = dict(
-            os.environ,
-            PATH=f"{self.fake}{os.pathsep}{pub_dir}{os.pathsep}{os.environ['PATH']}",
-            GH_LOG=str(self.gh_log),
-            GH_PR_VIEW=str(tmp / "gh-pr-view.json"),
-            GIT_AUTHOR_NAME="Test", GIT_AUTHOR_EMAIL="test@example.org",
-            GIT_COMMITTER_NAME="Test", GIT_COMMITTER_EMAIL="test@example.org",
-        )
-        self.env.pop("PUB", None)
-        self.fake.mkdir()
-        gh = self.fake / "gh"
-        gh.write_text(GH)
-        gh.chmod(gh.stat().st_mode | stat.S_IEXEC)
+        self.pubtest_ctx = pubtest_ctx
+        self.monkeypatch = monkeypatch
+        # pubtest's stand-ins first on PATH, then pub; pubtest puts PATH back
+        # when the scenario ends.
+        self.standins = standins(pubtest_ctx, tmp)
+        self.standins.add("gh", out=GH_ANSWER)
+        os.environ["PATH"] = f"{self.standins.bin}{os.pathsep}{pub_dir}{os.pathsep}{os.environ['PATH']}"
+        for name, val in (("GIT_AUTHOR_NAME", "Test"), ("GIT_AUTHOR_EMAIL", "test@example.org"),
+                          ("GIT_COMMITTER_NAME", "Test"), ("GIT_COMMITTER_EMAIL", "test@example.org")):
+            monkeypatch.setenv(name, val)
+        monkeypatch.delenv("PUB", raising=False)
 
         manifest_kind, manifest, template, code, source = MANIFESTS[kind]
         self.manifest = manifest
         self.source = source
-        self.root.mkdir()
         self.git("init", "-q", "-b", "main")
         (self.root / manifest).write_text(template.format(v=version))
         (self.root / source).parent.mkdir(parents=True, exist_ok=True)
@@ -140,12 +133,10 @@ class Package:
                     if line.startswith("author="))
 
     def without_pub(self):
-        """Make `pub` unrunnable: a `pub` first on the PATH that fails, and
-        $PUB naming nothing."""
-        fake = self.fake / "pub"
-        fake.write_text("#!/bin/sh\necho 'pub is not available here' >&2\nexit 127\n")
-        fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
-        self.env["PUB"] = str(self.tmp / "no-such-pub")
+        """Make `pub` unrunnable: a stand-in `pub` first on the PATH that
+        fails, and $PUB naming nothing."""
+        self.standins.add("pub", err="pub is not available here\n", code=127)
+        self.monkeypatch.setenv("PUB", str(self.tmp / "no-such-pub"))
 
     def objects(self) -> Path:
         return self.root / "corpus" / "objects"
@@ -160,7 +151,7 @@ class Package:
     # --- running things ---------------------------------------------------
 
     def run(self, *argv: str, cwd: Path | None = None) -> subprocess.CompletedProcess:
-        return subprocess.run(list(argv), cwd=cwd or self.root, env=self.env,
+        return subprocess.run(list(argv), cwd=cwd or self.root, env=dict(os.environ),
                               capture_output=True, text=True, check=False)
 
     def ok(self, *argv: str, cwd: Path | None = None) -> subprocess.CompletedProcess:
@@ -173,9 +164,6 @@ class Package:
 
     def pub(self, *args: str, cwd: Path | None = None):
         return self.ok("pub", *args, cwd=cwd)
-
-    def pubrel_run(self, *args: str):
-        return self.run(str(self.pubrel), *args)
 
     def commit(self, message: str):
         self.git("add", "-A")
@@ -224,13 +212,30 @@ class Package:
         return json.loads(self.pub("read", "--json", str(path)).stdout)["object"]
 
     def gh_calls(self) -> list[list[str]]:
-        if not self.gh_log.exists():
-            return []
-        return [line.split("\x1f")[:-1] for line in self.gh_log.read_text().splitlines()]
+        return self.standins.runs("gh")
+
+
+def checkout_cut(pubtest_ctx, code: int, stdout: str) -> None:
+    """prepare cuts the release in a worktree and leaves this checkout where
+    it was: the branch it cut, checked out here, for the steps that read it,
+    unless the scenario reads the checkout as prepare left it."""
+    cut = re.search(r"^on (\S+), in a worktree", stdout, re.M)
+    if code == 0 and cut and not getattr(pubtest_ctx, "keep_checkout", False):
+        subprocess.run(["git", "checkout", "-q", cut.group(1)], cwd=pubtest_ctx.directory, check=True)
+
+
+def pytest_bdd_after_step(request, feature, scenario, step, step_func, step_func_args):
+    """After pubtest's `I run "pubrel ..."`, the cut branch as above."""
+    if step.type == "when" and re.match(r'I run "pubrel\s', step.name):
+        ctx = request.getfixturevalue("pubtest_ctx")
+        checkout_cut(ctx, ctx.outcome.code, ctx.outcome.stdout)
 
 
 @pytest.fixture
-def make_package(tmp_path: Path, binary):
+def make_package(pubtest_ctx, tmp_path: Path, binary, monkeypatch):
+    """A package repository in the scenario's scratch directory."""
     def make(kind: str, version: str) -> Package:
-        return Package(tmp_path, kind, version, binary("pubrel"), binary("pub").parent)
+        assert pubtest_ctx.directory is not None, "a package needs a scratch directory first"
+        return Package(pubtest_ctx.directory, tmp_path, kind, version, binary("pubrel"), binary("pub").parent,
+                       pubtest_ctx, monkeypatch)
     return make

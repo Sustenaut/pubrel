@@ -49,6 +49,14 @@
     {
       "path": "corpus/**",
       "reason": "Release records, not code"
+    },
+    {
+      "path": "tests/conftest.py",
+      "reason": "Makes pubtest's stand-in gh, which records what it was asked and reaches no GitHub"
+    },
+    {
+      "path": "tests/steps/test_pubrel.py",
+      "reason": "Tells pubtest's stand-in gh how to answer; it reaches no GitHub"
     }
   ],
   "own_hosts": [
