@@ -1,4 +1,6 @@
 # The functional suite's direct dependencies: pubrules' shared pins. The
 # resolved set with hashes lives in requirements.lock; regenerate it with
 # `make lock`.
+# The steps and plugin the suite runs with; the nightly moves the pin.
+pubtestrules==0.4.0
 -r requirements-pubrules.txt
