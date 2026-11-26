@@ -1,4 +1,4 @@
-# Managed by pubrules 0.45.1: `pubrules sync` rewrites this file, and
+# Managed by pubrules 0.49.1: `pubrules sync` rewrites this file, and
 # `pubrules sync --check` fails when it differs. Include it from the Makefile,
 # and override the variables below there; targets of your own go there too.
 SHELL := /bin/bash
