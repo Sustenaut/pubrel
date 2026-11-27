@@ -37,7 +37,7 @@ jobs:
     needs: [tested, gates]
     if: ${{ needs.tested.outputs.tested != 'true' }}
     uses: Sustenaut/pubrules/.github/workflows/job-rust-functional.yml@498c9185a45fc6edad74658740e66cd369a646a4 # v0.49.1
-    with: {"required": "functional supply-chain-check", "tools": "[{\"crate\": \"publet-cli\", \"git\": \"https://github.com/Sustenaut/publet\", \"tag\": \"v0.4.1\"}]"}
+    with: {"required": "functional supply-chain-check", "tools": "[{\"crate\": \"publet-cli\", \"git\": \"https://github.com/Sustenaut/publet\", \"tag\": \"v0.5.0\"}]"}
     secrets: { SONAR_TOKEN: '${{ secrets.SONAR_TOKEN }}' }
 
   msrv:
